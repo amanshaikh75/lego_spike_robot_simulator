@@ -303,17 +303,16 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    title Clear Console Event Flow
-    Start([Start]) --> Click[User clicks "Clear" button]
-    Click --> HandleClear[Console.handleClear called]
-    HandleClear --> Emit[emit 'clear']
-    Emit --> AppReceive[App receives @clear event]
-    AppReceive --> AppHandle[App.handleClearConsole called]
-    AppHandle --> ClearLogs[useRobotState.clearLogs called]
-    ClearLogs --> Splice[state.logs.splice 0, length]
-    Splice --> Reactive[Console reactively updates]
-    Reactive --> Placeholder[Placeholder message shown]
-    Placeholder --> Stop([Stop])
+    Start([Start]) --> Click["User clicks 'Clear' button"]
+    Click --> HandleClear["Console.handleClear called"]
+    HandleClear --> Emit["emit 'clear'"]
+    Emit --> AppReceive["App receives @clear event"]
+    AppReceive --> AppHandle["App.handleClearConsole called"]
+    AppHandle --> ClearLogs["useRobotState.clearLogs called"]
+    ClearLogs --> Splice["state.logs.splice 0, length"]
+    Splice --> Reactive["Console reactively updates"]
+    Reactive --> Placeholder["Placeholder message shown"]
+    Placeholder --> Stop(["Stop"])
 ```
 
 #### Auto-Scroll Event
