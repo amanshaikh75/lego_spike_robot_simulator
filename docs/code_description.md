@@ -277,23 +277,23 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    Start([Start]) --> UserClick[User clicks "Run Code" button]
-    UserClick --> HandleRun[CodeInput.handleRun called]
-    HandleRun --> Emit[emit 'run', code.value]
-    Emit --> AppReceive[App receives @run event]
-    AppReceive --> AppHandle[App.handleRunCode code called]
-    AppHandle --> RunCode[usePyodide.runCode code called]
-    
+    Start([Start]) --> UserClick["User clicks 'Run Code' button"]
+    UserClick --> HandleRun["CodeInput.handleRun called"]
+    HandleRun --> Emit["emit 'run', code.value"]
+    Emit --> AppReceive["App receives @run event"]
+    AppReceive --> AppHandle["App.handleRunCode(code) called"]
+    AppHandle --> RunCode["usePyodide.runCode(code) called"]
+
     RunCode --> Ready{pyodide ready?}
-    Ready -- Yes --> AddLog[addLog '--- Running code ---']
-    AddLog --> Exec[pyodide.runPythonAsync code]
-    
+    Ready -- Yes --> AddLog["addLog('--- Running code ---')"]
+    AddLog --> Exec["pyodide.runPythonAsync(code)"]
+
     Exec --> Success{execution successful?}
-    Success -- Yes --> CompleteLog[addLog '--- Code execution complete ---']
-    Success -- No --> ErrorLog[addLog 'Error: ' + message]
-    
-    Ready -- No --> NotReadyLog[addLog 'Pyodide is not ready yet']
-    
+    Success -- Yes --> CompleteLog["addLog('--- Code execution complete ---')"]
+    Success -- No --> ErrorLog["addLog('Error: ' + message)"]
+
+    Ready -- No --> NotReadyLog["addLog('Pyodide is not ready yet')"]
+
     CompleteLog --> Stop([Stop])
     ErrorLog --> Stop
     NotReadyLog --> Stop
