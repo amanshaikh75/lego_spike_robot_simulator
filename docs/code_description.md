@@ -276,9 +276,6 @@ sequenceDiagram
 #### Run Code Event
 
 ```mermaid
----
-title: Run Code Event Flow
----
 flowchart TD
     Start([Start]) --> UserClick[User clicks "Run Code" button]
     UserClick --> HandleRun[CodeInput.handleRun called]
