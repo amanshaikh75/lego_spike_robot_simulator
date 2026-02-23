@@ -319,15 +319,14 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    title Console Auto-Scroll Event Flow
-    Start([Start]) --> LogAdded[Log entry added to state.logs]
-    LogAdded --> Reactivity[Vue reactivity triggers watch]
-    Reactivity --> Watch[watch detects logs.length change]
-    Watch --> NextTick[await nextTick]
-    NextTick --> DOMUpdate[Wait for DOM update]
-    DOMUpdate --> GetRef[Get consoleRef.value]
-    GetRef --> Scroll[Set scrollTop = scrollHeight]
-    Scroll --> End([Console scrolls to bottom])
+    Start([Start]) --> LogAdded["Log entry added to state.logs"]
+    LogAdded --> Reactivity["Vue reactivity triggers watch"]
+    Reactivity --> Watch["watch detects logs.length change"]
+    Watch --> NextTick["await nextTick"]
+    NextTick --> DOMUpdate["Wait for DOM update"]
+    DOMUpdate --> GetRef["Get consoleRef.value"]
+    GetRef --> Scroll["Set scrollTop = scrollHeight"]
+    Scroll --> End(["Console scrolls to bottom"])
 ```
 
 ### Python-to-JavaScript Bridge Events
