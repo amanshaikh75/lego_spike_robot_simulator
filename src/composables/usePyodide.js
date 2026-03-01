@@ -9,12 +9,12 @@ const error = ref(null)
 
 // Python code for the hub.port module
 const hubPortModule = `
-A = ${PORTS.A}
-B = ${PORTS.B}
-C = ${PORTS.C}
-D = ${PORTS.D}
-E = ${PORTS.E}
-F = ${PORTS.F}
+port.A = ${PORTS.A}
+port.B = ${PORTS.B}
+port.C = ${PORTS.C}
+port.D = ${PORTS.D}
+port.E = ${PORTS.E}
+port.F = ${PORTS.F}
 `
 
 // Python code for the motor module
