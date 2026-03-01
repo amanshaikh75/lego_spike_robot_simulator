@@ -20,3 +20,16 @@ npm run dev
 ```
 
 Access the server in a browser by visiting 'http://localhost:5173'.
+
+# Starting the server after the main branch is updated on github.com
+
+Assumption: you are already at C:\Users\nafis\github_repos\lego_spike_robot_simulator in the Windows Power Shell.
+
+Run the following commands:
+```
+git pull origin
+npm install
+npm run dev
+```
+
+Reload the 'http://localhost:5173' page in the browser.
