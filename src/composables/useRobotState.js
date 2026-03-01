@@ -63,6 +63,20 @@ export function motorVelocity(port) {
   return state.motors[port].velocity
 }
 
+export function motorAbsolutePosition(port) {
+  if (port < 0 || port > 5) {
+    throw new Error(`Invalid port: ${port}`)
+  }
+  return state.motors[port].absolutePosition
+}
+
+export function motorRelativePosition(port) {
+  if (port < 0 || port > 5) {
+    throw new Error(`Invalid port: ${port}`)
+  }
+  return state.motors[port].relativePosition
+}
+
 // Logging functions
 export function addLog(message) {
   const timestamp = new Date().toLocaleTimeString()
@@ -89,6 +103,8 @@ export function useRobotState() {
     motorRun,
     motorStop,
     motorVelocity,
+    motorAbsolutePosition,
+    motorRelativePosition,
     addLog,
     clearLogs,
     resetState

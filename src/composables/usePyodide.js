@@ -1,6 +1,6 @@
 import { ref, shallowRef } from 'vue'
 import { loadPyodide } from 'pyodide'
-import { motorRun, motorStop, motorVelocity, addLog, PORTS } from './useRobotState'
+import { motorRun, motorStop, motorVelocity, motorAbsolutePosition, motorRelativePosition, addLog, PORTS } from './useRobotState'
 
 const pyodide = shallowRef(null)
 const isLoading = ref(true)
@@ -20,7 +20,7 @@ port.F = ${PORTS.F}
 // Python code for the motor module
 const motorModule = `
 import js
-from js import _motor_run, _motor_stop, _motor_velocity
+from js import _motor_run, _motor_stop, _motor_velocity, _motor_absolute_position, _motor_relative_position
 
 def run(port, velocity, *, acceleration=1000):
     """Run the motor at a constant velocity."""
@@ -33,6 +33,14 @@ def stop(port, *, stop=0):
 def velocity(port):
     """Get the current velocity of the motor."""
     return _motor_velocity(port)
+
+def absolute_position(port):
+    """Get the absolute position of the motor."""
+    return _motor_absolute_position(port)
+
+def relative_position(port):
+    """Get the relative position of the motor."""
+    return _motor_relative_position(port)
 `
 
 async function initPyodide() {
@@ -49,6 +57,8 @@ async function initPyodide() {
     globalThis._motor_run = motorRun
     globalThis._motor_stop = motorStop
     globalThis._motor_velocity = motorVelocity
+    globalThis._motor_absolute_position = motorAbsolutePosition
+    globalThis._motor_relative_position = motorRelativePosition
     globalThis._add_log = addLog
 
     // Create the hub package with port module
