@@ -45,11 +45,11 @@ async function initPyodide() {
       indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.29.1/full/'
     })
 
-    // Expose JavaScript functions to Python
-    pyodide.value.globals.set('_motor_run', motorRun)
-    pyodide.value.globals.set('_motor_stop', motorStop)
-    pyodide.value.globals.set('_motor_velocity', motorVelocity)
-    pyodide.value.globals.set('_add_log', addLog)
+    // Expose JavaScript functions to Python via globalThis (accessible from `js` module)
+    globalThis._motor_run = motorRun
+    globalThis._motor_stop = motorStop
+    globalThis._motor_velocity = motorVelocity
+    globalThis._add_log = addLog
 
     // Create the hub package with port module
     await pyodide.value.runPythonAsync(`
