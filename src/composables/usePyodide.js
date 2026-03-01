@@ -42,7 +42,7 @@ async function initPyodide() {
 
     // Load Pyodide
     pyodide.value = await loadPyodide({
-      indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.27.0/full/'
+      indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.29.1/full/'
     })
 
     // Expose JavaScript functions to Python
