@@ -16,6 +16,7 @@ Learn more about IDE Support for Vue in the
 ```
 cd C:\Users\nafis\github_repos\lego_spike_robot_simulator
 npm install
+npm test
 npm run dev
 ```
 
@@ -29,6 +30,7 @@ Run the following commands:
 ```
 git pull origin
 npm install
+npm test
 npm run dev
 ```
 
