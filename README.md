@@ -16,7 +16,7 @@ Learn more about IDE Support for Vue in the
 ```
 cd C:\Users\nafis\github_repos\lego_spike_robot_simulator
 npm install
-npm dev run
+npm run dev
 ```
 
 Access the server in a browser by visiting 'http://localhost:5173'.
