@@ -77,6 +77,44 @@ export function motorRelativePosition(port) {
   return state.motors[port].relativePosition
 }
 
+export function motorRunForDegrees(port, degrees, velocity) {
+  if (port < 0 || port > 5) {
+    throw new Error(`Invalid port: ${port}`)
+  }
+  const portName = Object.keys(PORTS).find(key => PORTS[key] === port)
+  const absDegrees = Math.abs(degrees)
+  const direction = degrees >= 0 ? 1 : -1
+  const absVelocity = Math.abs(velocity)
+  const durationMs = (absDegrees / absVelocity) * 1000
+
+  state.motors[port].velocity = absVelocity * direction
+  state.motors[port].running = true
+  addLog(`Motor ${portName} running for ${degrees} degrees at ${velocity} deg/sec`)
+
+  return new Promise((resolve) => {
+    const startPosition = state.motors[port].relativePosition
+    const startAbsPosition = state.motors[port].absolutePosition
+    const startTime = performance.now()
+
+    const interval = setInterval(() => {
+      const elapsed = performance.now() - startTime
+      const progress = Math.min(elapsed / durationMs, 1)
+      const movedDegrees = absDegrees * progress * direction
+
+      state.motors[port].relativePosition = startPosition + movedDegrees
+      state.motors[port].absolutePosition = ((startAbsPosition + movedDegrees) % 360 + 360) % 360
+
+      if (progress >= 1) {
+        clearInterval(interval)
+        state.motors[port].velocity = 0
+        state.motors[port].running = false
+        addLog(`Motor ${portName} completed ${degrees} degrees`)
+        resolve()
+      }
+    }, 50)
+  })
+}
+
 // Logging functions
 export function addLog(message) {
   const timestamp = new Date().toLocaleTimeString()
@@ -102,6 +140,7 @@ export function useRobotState() {
     PORTS,
     motorRun,
     motorStop,
+    motorRunForDegrees,
     motorVelocity,
     motorAbsolutePosition,
     motorRelativePosition,
