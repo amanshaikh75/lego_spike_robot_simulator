@@ -1,6 +1,6 @@
 import { ref, shallowRef } from 'vue'
 import { loadPyodide } from 'pyodide'
-import { motorRun, motorStop, motorVelocity, motorAbsolutePosition, motorRelativePosition, addLog, PORTS } from './useRobotState'
+import { motorRun, motorStop, motorRunForDegrees, motorVelocity, motorAbsolutePosition, motorRelativePosition, addLog, PORTS } from './useRobotState'
 
 const pyodide = shallowRef(null)
 const isLoading = ref(true)
@@ -56,7 +56,7 @@ async def until(function, timeout=0):
 // Python code for the motor module
 const motorModule = `
 import js
-from js import _motor_run, _motor_stop, _motor_velocity, _motor_absolute_position, _motor_relative_position
+from js import _motor_run, _motor_stop, _motor_run_for_degrees, _motor_velocity, _motor_absolute_position, _motor_relative_position
 
 def run(port, velocity, *, acceleration=1000):
     """Run the motor at a constant velocity."""
@@ -77,6 +77,10 @@ def absolute_position(port):
 def relative_position(port):
     """Get the relative position of the motor."""
     return _motor_relative_position(port)
+
+async def run_for_degrees(port, degrees, velocity, *, stop=0, acceleration=1000, deceleration=1000):
+    """Run the motor for the given number of degrees at the specified velocity."""
+    await _motor_run_for_degrees(port, degrees, velocity)
 `
 
 async function initPyodide() {
@@ -92,6 +96,7 @@ async function initPyodide() {
     // Expose JavaScript functions to Python via globalThis (accessible from `js` module)
     globalThis._motor_run = motorRun
     globalThis._motor_stop = motorStop
+    globalThis._motor_run_for_degrees = motorRunForDegrees
     globalThis._motor_velocity = motorVelocity
     globalThis._motor_absolute_position = motorAbsolutePosition
     globalThis._motor_relative_position = motorRelativePosition
