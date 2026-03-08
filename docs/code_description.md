@@ -32,7 +32,7 @@ This is a client-side web application with no command-line interface. Developmen
 | :--- | :--- |
 | `vite.config.js` | Vite build configuration with Vue plugin |
 | `package.json` | Dependencies (Vue 3, Pyodide, Vite) |
-| `usePyodide.js:45` | Pyodide CDN URL |
+| `usePyodide.js:93` | Pyodide CDN URL |
 
 ### Output
 
@@ -75,7 +75,10 @@ classDiagram
         +Object PORTS
         +motorRun(port, velocity)
         +motorStop(port)
+        +motorRunForDegrees(port, degrees, velocity) Promise
         +motorVelocity(port)
+        +motorAbsolutePosition(port)
+        +motorRelativePosition(port)
         +addLog(message)
         +clearLogs()
         +resetState()
@@ -135,6 +138,8 @@ classDiagram
 │  │   - state           │◄───│     - initPyodide()     │    │
 │  │   - clearLogs()     │    │     - runCode()         │    │
 │  │   - motorRun()      │    │     - isReady           │    │
+│  │   - motorRunFor     │    │                         │    │
+│  │     Degrees()       │    │                         │    │
 │  └─────────────────────┘    └─────────────────────────┘    │
 │             │                           │                   │
 │             ▼                           ▼                   │
@@ -160,7 +165,7 @@ classDiagram
 3. Vue creates app instance and mounts `App.vue`
 4. `onMounted()` hook triggers `initPyodide()`
 5. Pyodide runtime loads from CDN
-6. Python modules (`hub.port`, `motor`) are created
+6. Python modules (`hub.port`, `motor`, `runloop`) are created
 7. Status changes from "Loading..." to "Ready"
 
 #### Phase 2: User Interaction
@@ -200,9 +205,10 @@ sequenceDiagram
     Pyodide->>CDN: loadPyodide(indexURL)
     CDN-->>Pyodide: Pyodide runtime (WASM)
 
-    Pyodide->>Pyodide: Expose JS functions to Python (motorRun, etc.)
+    Pyodide->>Pyodide: Expose JS functions to Python (motorRun, motorRunForDegrees, etc.)
     Pyodide->>Pyodide: Create hub.port module
-    Pyodide->>Pyodide: Create motor module
+    Pyodide->>Pyodide: Create motor module (run, stop, run_for_degrees, etc.)
+    Pyodide->>Pyodide: Create runloop module (run, sleep_ms, until)
     Pyodide->>Pyodide: Override sys.stdout/stderr
 
     Pyodide->>State: addLog("Pyodide initialized")
@@ -250,8 +256,18 @@ sequenceDiagram
     State->>Console: logs updated (reactive)
     Console->>Console: Auto-scroll
 
+    Note over Runtime,Motor: Async motor operations (e.g. run_for_degrees)
+    Runtime->>Motor: await motor.run_for_degrees(port.A, 360, 720)
+    Motor->>State: _motor_run_for_degrees(0, 360, 720)
+    State->>State: Start interval, update position over time
+    State-->>Motor: Promise resolves when rotation complete
+    Motor-->>Runtime: await completes
+
     Runtime-->>Pyodide: execution complete
     deactivate Runtime
+
+    Pyodide->>Pyodide: Gather pending runloop tasks
+    Note over Pyodide: await asyncio.gather(*_pending_tasks)
 
     Pyodide->>State: addLog("--- Code execution complete ---")
     State->>Console: logs updated (reactive)
@@ -288,7 +304,8 @@ flowchart TD
     Ready -- Yes --> AddLog["addLog('--- Running code ---')"]
     AddLog --> Exec["pyodide.runPythonAsync(code)"]
 
-    Exec --> Success{execution successful?}
+    Exec --> Runloop["Gather pending runloop tasks"]
+    Runloop --> Success{execution successful?}
     Success -- Yes --> CompleteLog["addLog('--- Code execution complete ---')"]
     Success -- No --> ErrorLog["addLog('Error: ' + message)"]
 
@@ -337,16 +354,28 @@ sequenceDiagram
     participant Python as Python Code
     participant MotorPy as motor module (Python)
     participant Bridge as Pyodide Bridge
-    participant MotorJS as _motor_run (JavaScript)
+    participant MotorJS as JavaScript motor functions
     participant State as useRobotState
 
+    Note over Python,State: Synchronous motor call
     Python->>MotorPy: motor.run(port.A, 1000)
     MotorPy->>Bridge: _motor_run(0, 1000)
-    Note over Bridge: JavaScript function exposed via globals.set()
+    Note over Bridge: JavaScript function exposed via globalThis
     Bridge->>MotorJS: motorRun(0, 1000)
     MotorJS->>State: state.motors[0].velocity = 1000
     MotorJS->>State: state.motors[0].running = true
     MotorJS->>State: addLog("Motor A running at 1000 deg/sec")
+
+    Note over Python,State: Async motor call (returns Promise)
+    Python->>MotorPy: await motor.run_for_degrees(port.A, 360, 720)
+    MotorPy->>Bridge: await _motor_run_for_degrees(0, 360, 720)
+    Bridge->>MotorJS: motorRunForDegrees(0, 360, 720)
+    MotorJS->>State: Start motor, update position via setInterval
+    Note over MotorJS,State: Position updates every 50ms until degrees completed
+    MotorJS->>State: Stop motor, resolve Promise
+    MotorJS-->>Bridge: Promise resolved
+    Bridge-->>MotorPy: await completes
+    MotorPy-->>Python: returns to caller
 ```
 
 ### Vue Reactivity Flow
