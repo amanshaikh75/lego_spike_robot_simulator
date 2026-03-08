@@ -17,6 +17,42 @@ port.E = ${PORTS.E}
 port.F = ${PORTS.F}
 `
 
+// Python code for the runloop module
+const runloopModule = `
+import asyncio
+
+_pending_tasks = []
+
+def run(*functions):
+    """Start one or more async functions and run them concurrently.
+
+    This is the entry point for SPIKE programs. It schedules the given
+    coroutines to be executed. The simulator awaits them after user code
+    completes.
+    """
+    _pending_tasks.extend(functions)
+
+async def sleep_ms(duration):
+    """Asynchronously sleep for the given number of milliseconds."""
+    await asyncio.sleep(duration / 1000)
+
+async def until(function, timeout=0):
+    """Wait until function returns a truthy value, or timeout (ms) expires.
+
+    If timeout is 0 or negative, wait indefinitely.
+    Raises TimeoutError if the timeout expires before the condition is met.
+    """
+    elapsed = 0
+    poll_interval = 10  # ms
+    while True:
+        if function():
+            return
+        if timeout > 0 and elapsed >= timeout:
+            raise TimeoutError("runloop.until() timed out")
+        await asyncio.sleep(poll_interval / 1000)
+        elapsed += poll_interval
+`
+
 // Python code for the motor module
 const motorModule = `
 import js
@@ -85,6 +121,14 @@ exec('''${motorModule}''', motor.__dict__)
 sys.modules['motor'] = motor
 `)
 
+    // Create the runloop module
+    await pyodide.value.runPythonAsync(`
+import types
+runloop = types.ModuleType('runloop')
+exec('''${runloopModule}''', runloop.__dict__)
+sys.modules['runloop'] = runloop
+`)
+
     // Override print to capture output
     await pyodide.value.runPythonAsync(`
 import sys
@@ -120,6 +164,16 @@ async function runCode(code) {
   try {
     addLog('--- Running code ---')
     await pyodide.value.runPythonAsync(code)
+
+    // Await any coroutines scheduled via runloop.run()
+    await pyodide.value.runPythonAsync(`
+import runloop as _rl
+import asyncio as _aio
+if _rl._pending_tasks:
+    await _aio.gather(*_rl._pending_tasks)
+    _rl._pending_tasks.clear()
+`)
+
     addLog('--- Code execution complete ---')
   } catch (e) {
     addLog(`Error: ${e.message}`)
