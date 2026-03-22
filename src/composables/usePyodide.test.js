@@ -67,6 +67,25 @@ describe('runloop module definition', () => {
   })
 })
 
+describe('time extension module definition', () => {
+  it('defines sleep_ms as a synchronous function', () => {
+    const moduleSource = getTimeExtSource()
+    expect(moduleSource).toContain('def sleep_ms(duration):')
+    // Must NOT be async — this is the blocking version
+    expect(moduleSource).not.toContain('async def sleep_ms')
+  })
+
+  it('delegates to time.sleep with millisecond conversion', () => {
+    const moduleSource = getTimeExtSource()
+    expect(moduleSource).toContain('_time.sleep(duration / 1000)')
+  })
+
+  it('imports the built-in time module', () => {
+    const moduleSource = getTimeExtSource()
+    expect(moduleSource).toContain('import time as _time')
+  })
+})
+
 // Helper: read the source file and extract the runloop module string
 function getRunloopSource() {
   // We read the source file content to extract the template
@@ -80,5 +99,18 @@ function getRunloopSource() {
   // Extract content between "const runloopModule = `" and the closing backtick
   const match = source.match(/const runloopModule = `([\s\S]*?)`/)
   if (!match) throw new Error('Could not find runloopModule in source')
+  return match[1]
+}
+
+// Helper: read the source file and extract the timeExtModule string
+function getTimeExtSource() {
+  const fs = require('fs')
+  const path = require('path')
+  const source = fs.readFileSync(
+    path.join(__dirname, 'usePyodide.js'),
+    'utf-8'
+  )
+  const match = source.match(/const timeExtModule = `([\s\S]*?)`/)
+  if (!match) throw new Error('Could not find timeExtModule in source')
   return match[1]
 }
