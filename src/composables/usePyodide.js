@@ -53,20 +53,6 @@ async def until(function, timeout=0):
         elapsed += poll_interval
 `
 
-// Python code for the time extension (adds sleep_ms to built-in time module)
-const timeExtModule = `
-import time as _time
-
-def sleep_ms(duration):
-    """Sleep for the given number of milliseconds (blocking).
-
-    Unlike runloop.sleep_ms(), this is a synchronous/blocking call
-    that can be used from regular (non-async) functions.
-    In Pyodide, time.sleep yields to the event loop internally.
-    """
-    _time.sleep(duration / 1000)
-`
-
 // Python code for the motor module
 const motorModule = `
 import js
@@ -151,7 +137,18 @@ sys.modules['runloop'] = runloop
     // Extend the time module with sleep_ms
     await pyodide.value.runPythonAsync(`
 import time
-exec('''${timeExtModule}''', time.__dict__)
+
+def _sleep_ms(duration):
+    """Sleep for the given number of milliseconds (blocking).
+
+    Unlike runloop.sleep_ms(), this is a synchronous/blocking call
+    that can be used from regular (non-async) functions.
+    In Pyodide, time.sleep yields to the event loop internally.
+    """
+    time.sleep(duration / 1000)
+
+time.sleep_ms = _sleep_ms
+del _sleep_ms
 `)
 
     // Override print to capture output

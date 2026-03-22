@@ -67,50 +67,46 @@ describe('runloop module definition', () => {
   })
 })
 
-describe('time extension module definition', () => {
-  it('defines sleep_ms as a synchronous function', () => {
-    const moduleSource = getTimeExtSource()
-    expect(moduleSource).toContain('def sleep_ms(duration):')
-    // Must NOT be async — this is the blocking version
-    expect(moduleSource).not.toContain('async def sleep_ms')
+describe('time extension (inline in initPyodide)', () => {
+  it('defines _sleep_ms as a synchronous function and assigns to time.sleep_ms', () => {
+    const source = getFullSource()
+    // The inline code defines a regular def, not async
+    expect(source).toContain('def _sleep_ms(duration):')
+    expect(source).not.toContain('async def _sleep_ms')
+    // It patches it onto the time module
+    expect(source).toContain('time.sleep_ms = _sleep_ms')
   })
 
   it('delegates to time.sleep with millisecond conversion', () => {
-    const moduleSource = getTimeExtSource()
-    expect(moduleSource).toContain('_time.sleep(duration / 1000)')
+    const source = getFullSource()
+    expect(source).toContain('time.sleep(duration / 1000)')
   })
 
-  it('imports the built-in time module', () => {
-    const moduleSource = getTimeExtSource()
-    expect(moduleSource).toContain('import time as _time')
+  it('cleans up the temporary function', () => {
+    const source = getFullSource()
+    expect(source).toContain('del _sleep_ms')
   })
 })
 
 // Helper: read the source file and extract the runloop module string
 function getRunloopSource() {
-  // We read the source file content to extract the template
-  // This is a static analysis test of the Python source template
   const fs = require('fs')
   const path = require('path')
   const source = fs.readFileSync(
     path.join(__dirname, 'usePyodide.js'),
     'utf-8'
   )
-  // Extract content between "const runloopModule = `" and the closing backtick
   const match = source.match(/const runloopModule = `([\s\S]*?)`/)
   if (!match) throw new Error('Could not find runloopModule in source')
   return match[1]
 }
 
-// Helper: read the source file and extract the timeExtModule string
-function getTimeExtSource() {
+// Helper: read the full source file
+function getFullSource() {
   const fs = require('fs')
   const path = require('path')
-  const source = fs.readFileSync(
+  return fs.readFileSync(
     path.join(__dirname, 'usePyodide.js'),
     'utf-8'
   )
-  const match = source.match(/const timeExtModule = `([\s\S]*?)`/)
-  if (!match) throw new Error('Could not find timeExtModule in source')
-  return match[1]
 }
