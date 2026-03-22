@@ -21,6 +21,7 @@ Web-based simulator for LEGO Spike Prime robots. Tests Python code before deploy
 - Basic `motor` module implemented (`run`, `stop`, `velocity`, `absolute_position`, `relative_position`)
 - CodeInput and Console components created
 - Robot state management created
+- Note: `motor.absolute_position()` and `motor.relative_position()` were implemented early (originally milestone 1.2 items)
 
 #### Milestone 1.2: Async Support & Motor Commands — IN PROGRESS
 - Task 1 (`runloop` module): COMPLETE — `run()`, `sleep_ms()`, `until()` implemented
