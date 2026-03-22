@@ -32,7 +32,7 @@ This is a client-side web application with no command-line interface. Developmen
 | :--- | :--- |
 | `vite.config.js` | Vite build configuration with Vue plugin |
 | `package.json` | Dependencies (Vue 3, Pyodide, Vite) |
-| `usePyodide.js:93` | Pyodide CDN URL |
+| `usePyodide.js:93` | Pyodide CDN URL (`https://cdn.jsdelivr.net/pyodide/v0.29.1/full/`) |
 
 ### Output
 
@@ -122,8 +122,15 @@ classDiagram
     useRobotState o-- RobotState : manages
     RobotState *-- MotorState : contains 6
     RobotState *-- LogEntry : contains many
+    class TimeModule {
+        +sleep_ms(duration) void
+        +ticks_ms() int
+        +ticks_diff(ticks1, ticks2) int
+    }
+
     usePyodide ..> Pyodide : wraps
     usePyodide ..> useRobotState : calls motor functions
+    usePyodide ..> TimeModule : extends built-in time
     CodeInput ..> App : emits 'run'
     Console ..> App : emits 'clear'
 ```
@@ -166,7 +173,8 @@ classDiagram
 4. `onMounted()` hook triggers `initPyodide()`
 5. Pyodide runtime loads from CDN
 6. Python modules (`hub.port`, `motor`, `runloop`) are created
-7. Status changes from "Loading..." to "Ready"
+7. Built-in `time` module is extended with MicroPython-compatible functions (`sleep_ms`, `ticks_ms`, `ticks_diff`)
+8. Status changes from "Loading..." to "Ready"
 
 #### Phase 2: User Interaction
 1. User enters Python code in textarea
@@ -209,6 +217,7 @@ sequenceDiagram
     Pyodide->>Pyodide: Create hub.port module
     Pyodide->>Pyodide: Create motor module (run, stop, run_for_degrees, etc.)
     Pyodide->>Pyodide: Create runloop module (run, sleep_ms, until)
+    Pyodide->>Pyodide: Extend time module (sleep_ms, ticks_ms, ticks_diff)
     Pyodide->>Pyodide: Override sys.stdout/stderr
 
     Pyodide->>State: addLog("Pyodide initialized")
