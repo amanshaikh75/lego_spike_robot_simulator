@@ -134,21 +134,26 @@ exec('''${runloopModule}''', runloop.__dict__)
 sys.modules['runloop'] = runloop
 `)
 
-    // Extend the time module with sleep_ms
+    // Extend the time module with MicroPython-compatible functions
     await pyodide.value.runPythonAsync(`
 import time
 
 def _sleep_ms(duration):
-    """Sleep for the given number of milliseconds (blocking).
-
-    Unlike runloop.sleep_ms(), this is a synchronous/blocking call
-    that can be used from regular (non-async) functions.
-    In Pyodide, time.sleep yields to the event loop internally.
-    """
+    """Sleep for the given number of milliseconds (blocking)."""
     time.sleep(duration / 1000)
 
+def _ticks_ms():
+    """Return an increasing millisecond counter (MicroPython-compatible)."""
+    return int(time.time() * 1000)
+
+def _ticks_diff(ticks1, ticks2):
+    """Compute the signed difference between two ticks values (MicroPython-compatible)."""
+    return ticks1 - ticks2
+
 time.sleep_ms = _sleep_ms
-del _sleep_ms
+time.ticks_ms = _ticks_ms
+time.ticks_diff = _ticks_diff
+del _sleep_ms, _ticks_ms, _ticks_diff
 `)
 
     // Override print to capture output
