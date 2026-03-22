@@ -70,10 +70,8 @@ describe('runloop module definition', () => {
 describe('time extension (inline in initPyodide)', () => {
   it('defines _sleep_ms as a synchronous function and assigns to time.sleep_ms', () => {
     const source = getFullSource()
-    // The inline code defines a regular def, not async
     expect(source).toContain('def _sleep_ms(duration):')
     expect(source).not.toContain('async def _sleep_ms')
-    // It patches it onto the time module
     expect(source).toContain('time.sleep_ms = _sleep_ms')
   })
 
@@ -82,9 +80,22 @@ describe('time extension (inline in initPyodide)', () => {
     expect(source).toContain('time.sleep(duration / 1000)')
   })
 
-  it('cleans up the temporary function', () => {
+  it('defines ticks_ms using time.time', () => {
     const source = getFullSource()
-    expect(source).toContain('del _sleep_ms')
+    expect(source).toContain('def _ticks_ms():')
+    expect(source).toContain('time.ticks_ms = _ticks_ms')
+  })
+
+  it('defines ticks_diff as signed subtraction', () => {
+    const source = getFullSource()
+    expect(source).toContain('def _ticks_diff(ticks1, ticks2):')
+    expect(source).toContain('return ticks1 - ticks2')
+    expect(source).toContain('time.ticks_diff = _ticks_diff')
+  })
+
+  it('cleans up all temporary functions', () => {
+    const source = getFullSource()
+    expect(source).toContain('del _sleep_ms, _ticks_ms, _ticks_diff')
   })
 })
 
