@@ -1,12 +1,14 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import {
   PORTS,
+  DIRECTION,
   motorRun,
   motorStop,
   motorVelocity,
   motorAbsolutePosition,
   motorRelativePosition,
   motorRunForTime,
+  motorRunToAbsolutePosition,
   addLog,
   clearLogs,
   resetState,
@@ -194,6 +196,114 @@ describe('motorRunForTime', () => {
   it('throws on invalid port', () => {
     expect(() => motorRunForTime(-1, 200, 360)).toThrow('Invalid port: -1')
     expect(() => motorRunForTime(6, 200, 360)).toThrow('Invalid port: 6')
+  })
+})
+
+describe('DIRECTION', () => {
+  it('defines direction constants', () => {
+    expect(DIRECTION.SHORTEST_PATH).toBe(0)
+    expect(DIRECTION.LONGEST_PATH).toBe(1)
+    expect(DIRECTION.CLOCKWISE).toBe(2)
+    expect(DIRECTION.COUNTERCLOCKWISE).toBe(3)
+  })
+})
+
+describe('motorRunToAbsolutePosition', () => {
+  it('moves clockwise via shortest path when target is ahead', async () => {
+    // Current pos = 0, target = 90 → shortest path is 90° clockwise
+    await motorRunToAbsolutePosition(PORTS.A, 90, 360)
+
+    expect(motorAbsolutePosition(PORTS.A)).toBe(90)
+    const { state } = useRobotState()
+    expect(state.motors[PORTS.A].running).toBe(false)
+    expect(state.motors[PORTS.A].velocity).toBe(0)
+  })
+
+  it('moves counterclockwise via shortest path when target is behind', async () => {
+    // Set position to 10, target = 350 → shortest path is 20° counterclockwise
+    // First move to position 10
+    await motorRunToAbsolutePosition(PORTS.A, 10, 360)
+    resetState()
+    // Manually set absolute position to 10 for a clean test
+    const { state } = useRobotState()
+    state // readonly, so let's use a different approach
+
+    // Move to 10 first
+    await motorRunToAbsolutePosition(PORTS.A, 10, 360)
+    const relBefore = motorRelativePosition(PORTS.A)
+
+    // Now move to 350; shortest path is -20° (counterclockwise)
+    await motorRunToAbsolutePosition(PORTS.A, 350, 360)
+
+    expect(motorAbsolutePosition(PORTS.A)).toBe(350)
+    const relAfter = motorRelativePosition(PORTS.A)
+    expect(relAfter - relBefore).toBeCloseTo(-20, 0)
+  })
+
+  it('uses CLOCKWISE direction', async () => {
+    // Current pos = 0, target = 350 → clockwise is 350°
+    await motorRunToAbsolutePosition(PORTS.A, 350, 360, DIRECTION.CLOCKWISE)
+
+    expect(motorAbsolutePosition(PORTS.A)).toBe(350)
+    expect(motorRelativePosition(PORTS.A)).toBeCloseTo(350, 0)
+  })
+
+  it('uses COUNTERCLOCKWISE direction', async () => {
+    // Current pos = 0, target = 90 → counterclockwise is -270°
+    await motorRunToAbsolutePosition(PORTS.A, 90, 360, DIRECTION.COUNTERCLOCKWISE)
+
+    expect(motorAbsolutePosition(PORTS.A)).toBe(90)
+    expect(motorRelativePosition(PORTS.A)).toBeCloseTo(-270, 0)
+  })
+
+  it('uses LONGEST_PATH direction', async () => {
+    // Current pos = 0, target = 90 → longest path is 270° counterclockwise
+    await motorRunToAbsolutePosition(PORTS.A, 90, 360, DIRECTION.LONGEST_PATH)
+
+    expect(motorAbsolutePosition(PORTS.A)).toBe(90)
+    expect(motorRelativePosition(PORTS.A)).toBeCloseTo(-270, 0)
+  })
+
+  it('resolves immediately when already at target position', async () => {
+    // Already at 0, target = 0
+    await motorRunToAbsolutePosition(PORTS.A, 0, 360)
+
+    expect(motorAbsolutePosition(PORTS.A)).toBe(0)
+    const { state } = useRobotState()
+    const messages = state.logs.map(l => l.message)
+    expect(messages).toContain('Motor A already at position 0')
+  })
+
+  it('updates relative position cumulatively', async () => {
+    await motorRunToAbsolutePosition(PORTS.A, 90, 360)
+    await motorRunToAbsolutePosition(PORTS.A, 180, 360)
+
+    expect(motorAbsolutePosition(PORTS.A)).toBe(180)
+    expect(motorRelativePosition(PORTS.A)).toBeCloseTo(180, 0)
+  })
+
+  it('logs start and completion messages', async () => {
+    await motorRunToAbsolutePosition(PORTS.A, 90, 360)
+
+    const { state } = useRobotState()
+    const messages = state.logs.map(l => l.message)
+    expect(messages).toContain('Motor A running to absolute position 90 at 360 deg/sec')
+    expect(messages).toContain('Motor A reached absolute position 90')
+  })
+
+  it('throws on invalid port', () => {
+    expect(() => motorRunToAbsolutePosition(-1, 90, 360)).toThrow('Invalid port: -1')
+    expect(() => motorRunToAbsolutePosition(6, 90, 360)).toThrow('Invalid port: 6')
+  })
+
+  it('sets velocity and running state during execution', async () => {
+    const promise = motorRunToAbsolutePosition(PORTS.A, 180, 360)
+
+    const { state } = useRobotState()
+    expect(state.motors[PORTS.A].running).toBe(true)
+    expect(state.motors[PORTS.A].velocity).toBe(360)
+
+    await promise
   })
 })
 

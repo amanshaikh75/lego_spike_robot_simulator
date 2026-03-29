@@ -99,6 +99,27 @@ describe('time extension (inline in initPyodide)', () => {
   })
 })
 
+describe('motor module definition', () => {
+  it('defines run_to_absolute_position as async function', () => {
+    const moduleSource = getMotorSource()
+    expect(moduleSource).toContain('async def run_to_absolute_position(port, position, velocity,')
+    expect(moduleSource).toContain('direction=SHORTEST_PATH')
+  })
+
+  it('defines direction constants', () => {
+    const moduleSource = getMotorSource()
+    expect(moduleSource).toContain('SHORTEST_PATH =')
+    expect(moduleSource).toContain('LONGEST_PATH =')
+    expect(moduleSource).toContain('CLOCKWISE =')
+    expect(moduleSource).toContain('COUNTERCLOCKWISE =')
+  })
+
+  it('imports _motor_run_to_absolute_position from js', () => {
+    const moduleSource = getMotorSource()
+    expect(moduleSource).toContain('_motor_run_to_absolute_position')
+  })
+})
+
 // Helper: read the source file and extract the runloop module string
 function getRunloopSource() {
   const fs = require('fs')
@@ -109,6 +130,19 @@ function getRunloopSource() {
   )
   const match = source.match(/const runloopModule = `([\s\S]*?)`/)
   if (!match) throw new Error('Could not find runloopModule in source')
+  return match[1]
+}
+
+// Helper: read the source file and extract the motor module string
+function getMotorSource() {
+  const fs = require('fs')
+  const path = require('path')
+  const source = fs.readFileSync(
+    path.join(__dirname, 'usePyodide.js'),
+    'utf-8'
+  )
+  const match = source.match(/const motorModule = `([\s\S]*?)`/)
+  if (!match) throw new Error('Could not find motorModule in source')
   return match[1]
 }
 
