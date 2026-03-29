@@ -26,7 +26,7 @@ Web-based simulator for LEGO Spike Prime robots. Tests Python code before deploy
 #### Milestone 1.2: Async Support & Motor Commands — IN PROGRESS
 - Task 1 (`runloop` module): COMPLETE — `run()`, `sleep_ms()`, `until()` implemented
 - Task 2 (`time.sleep_ms` blocking version): COMPLETE — Also added `ticks_ms()` and `ticks_diff()`
-- Task 3 (extended `motor` commands): NOT STARTED — `run_for_degrees` done, but still need: `run_for_time`, `run_to_absolute_position`, `run_to_relative_position`, `reset_relative_position`
+- Task 3 (extended `motor` commands): IN PROGRESS — `run_for_degrees` and `run_for_time` done, still need: `run_to_absolute_position`, `run_to_relative_position`, `reset_relative_position`
 - Task 4 (motor constants): NOT STARTED — BRAKE, COAST, HOLD, CONTINUE, SMART_COAST, SMART_BRAKE, CLOCKWISE, COUNTERCLOCKWISE, SHORTEST_PATH, LONGEST_PATH
 
 #### Milestone 1.3: Motor Pair & Drivebase — NOT STARTED
