@@ -10,6 +10,9 @@ Web-based simulator for LEGO Spike Prime robots. Tests Python code before deploy
 - `src/composables/usePyodide.js` — Pyodide init, Python module creation, code execution
 - `src/composables/useRobotState.js` — Robot state management (motors, logs)
 
+## Instructions
+- After committing code, update the status of the project in this file.
+
 ## Project Progress
 
 ### Phase 1: Programming Interface & Logic Simulation (MVP)
