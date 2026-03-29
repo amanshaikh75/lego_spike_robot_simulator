@@ -10,6 +10,14 @@ export const PORTS = {
   F: 5
 }
 
+// Motor direction constants
+export const DIRECTION = {
+  SHORTEST_PATH: 0,
+  LONGEST_PATH: 1,
+  CLOCKWISE: 2,
+  COUNTERCLOCKWISE: 3
+}
+
 // Create initial motor state
 function createMotorState() {
   return {
@@ -154,6 +162,70 @@ export function motorRunForTime(port, duration, velocity) {
   })
 }
 
+export function motorRunToAbsolutePosition(port, position, velocity, direction = DIRECTION.SHORTEST_PATH) {
+  if (port < 0 || port > 5) {
+    throw new Error(`Invalid port: ${port}`)
+  }
+  const portName = Object.keys(PORTS).find(key => PORTS[key] === port)
+  const currentAbsPos = state.motors[port].absolutePosition
+  const absVelocity = Math.abs(velocity)
+
+  // Calculate clockwise and counterclockwise distances
+  const cwDistance = (position - currentAbsPos + 360) % 360
+  const ccwDistance = (currentAbsPos - position + 360) % 360
+
+  let degreesToMove
+  if (direction === DIRECTION.CLOCKWISE) {
+    degreesToMove = cwDistance === 0 ? 0 : cwDistance
+  } else if (direction === DIRECTION.COUNTERCLOCKWISE) {
+    degreesToMove = ccwDistance === 0 ? 0 : -ccwDistance
+  } else if (direction === DIRECTION.LONGEST_PATH) {
+    degreesToMove = cwDistance >= ccwDistance ? cwDistance : -ccwDistance
+  } else {
+    // SHORTEST_PATH (default)
+    degreesToMove = cwDistance <= ccwDistance ? cwDistance : -ccwDistance
+  }
+
+  if (degreesToMove === 0) {
+    addLog(`Motor ${portName} already at position ${position}`)
+    return Promise.resolve()
+  }
+
+  const absDegrees = Math.abs(degreesToMove)
+  const moveDirection = degreesToMove >= 0 ? 1 : -1
+  const durationMs = (absDegrees / absVelocity) * 1000
+
+  state.motors[port].velocity = absVelocity * moveDirection
+  state.motors[port].running = true
+  addLog(`Motor ${portName} running to absolute position ${position} at ${velocity} deg/sec`)
+
+  return new Promise((resolve) => {
+    const startRelPosition = state.motors[port].relativePosition
+    const startAbsPosition = state.motors[port].absolutePosition
+    const startTime = performance.now()
+
+    const interval = setInterval(() => {
+      const elapsed = performance.now() - startTime
+      const progress = Math.min(elapsed / durationMs, 1)
+      const movedDegrees = absDegrees * progress * moveDirection
+
+      state.motors[port].relativePosition = startRelPosition + movedDegrees
+      state.motors[port].absolutePosition = ((startAbsPosition + movedDegrees) % 360 + 360) % 360
+
+      if (progress >= 1) {
+        clearInterval(interval)
+        // Snap to exact target position
+        state.motors[port].absolutePosition = position
+        state.motors[port].relativePosition = startRelPosition + degreesToMove
+        state.motors[port].velocity = 0
+        state.motors[port].running = false
+        addLog(`Motor ${portName} reached absolute position ${position}`)
+        resolve()
+      }
+    }, 50)
+  })
+}
+
 // Logging functions
 export function addLog(message) {
   const timestamp = new Date().toLocaleTimeString()
@@ -177,10 +249,12 @@ export function useRobotState() {
   return {
     state: readonly(state),
     PORTS,
+    DIRECTION,
     motorRun,
     motorStop,
     motorRunForDegrees,
     motorRunForTime,
+    motorRunToAbsolutePosition,
     motorVelocity,
     motorAbsolutePosition,
     motorRelativePosition,
