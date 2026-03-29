@@ -6,6 +6,7 @@ import {
   motorVelocity,
   motorAbsolutePosition,
   motorRelativePosition,
+  motorRunForTime,
   addLog,
   clearLogs,
   resetState,
@@ -136,6 +137,63 @@ describe('motorRelativePosition', () => {
   it('throws on invalid port', () => {
     expect(() => motorRelativePosition(-1)).toThrow('Invalid port: -1')
     expect(() => motorRelativePosition(6)).toThrow('Invalid port: 6')
+  })
+})
+
+describe('motorRunForTime', () => {
+  it('sets velocity and running state during execution', async () => {
+    const promise = motorRunForTime(PORTS.A, 200, 360)
+
+    const { state } = useRobotState()
+    expect(state.motors[PORTS.A].velocity).toBe(360)
+    expect(state.motors[PORTS.A].running).toBe(true)
+
+    await promise
+  })
+
+  it('resolves after the specified duration and stops the motor', async () => {
+    await motorRunForTime(PORTS.A, 200, 360)
+
+    const { state } = useRobotState()
+    expect(state.motors[PORTS.A].velocity).toBe(0)
+    expect(state.motors[PORTS.A].running).toBe(false)
+  })
+
+  it('updates relative position based on velocity and time', async () => {
+    // 360 deg/sec for 500ms = 180 degrees
+    await motorRunForTime(PORTS.A, 500, 360)
+
+    const relPos = motorRelativePosition(PORTS.A)
+    expect(relPos).toBeCloseTo(180, 0)
+  })
+
+  it('updates absolute position with wrapping', async () => {
+    // 360 deg/sec for 1500ms = 540 degrees -> absolute should wrap to 180
+    await motorRunForTime(PORTS.A, 1500, 360)
+
+    const absPos = motorAbsolutePosition(PORTS.A)
+    expect(absPos).toBeCloseTo(180, 0)
+  })
+
+  it('handles negative velocity', async () => {
+    await motorRunForTime(PORTS.A, 500, -360)
+
+    const relPos = motorRelativePosition(PORTS.A)
+    expect(relPos).toBeCloseTo(-180, 0)
+  })
+
+  it('logs start and completion messages', async () => {
+    await motorRunForTime(PORTS.A, 200, 360)
+
+    const { state } = useRobotState()
+    const messages = state.logs.map(l => l.message)
+    expect(messages).toContain('Motor A running for 200ms at 360 deg/sec')
+    expect(messages).toContain('Motor A completed 200ms run')
+  })
+
+  it('throws on invalid port', () => {
+    expect(() => motorRunForTime(-1, 200, 360)).toThrow('Invalid port: -1')
+    expect(() => motorRunForTime(6, 200, 360)).toThrow('Invalid port: 6')
   })
 })
 
