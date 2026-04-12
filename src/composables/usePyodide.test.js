@@ -114,6 +114,49 @@ describe('motor module definition', () => {
     expect(moduleSource).toContain('COUNTERCLOCKWISE =')
   })
 
+  it('defines stop action constants interpolated from STOP_ACTION', () => {
+    const moduleSource = getMotorSource()
+    expect(moduleSource).toContain('COAST = ${STOP_ACTION.COAST}')
+    expect(moduleSource).toContain('BRAKE = ${STOP_ACTION.BRAKE}')
+    expect(moduleSource).toContain('HOLD = ${STOP_ACTION.HOLD}')
+    expect(moduleSource).toContain('CONTINUE = ${STOP_ACTION.CONTINUE}')
+    expect(moduleSource).toContain('SMART_COAST = ${STOP_ACTION.SMART_COAST}')
+    expect(moduleSource).toContain('SMART_BRAKE = ${STOP_ACTION.SMART_BRAKE}')
+  })
+
+  it('declares stop action constants before the functions that use them as defaults', () => {
+    const moduleSource = getMotorSource()
+    const brakeDeclIndex = moduleSource.indexOf('BRAKE = ${STOP_ACTION.BRAKE}')
+    const firstStopDefault = moduleSource.indexOf('stop=BRAKE')
+    expect(brakeDeclIndex).toBeGreaterThan(-1)
+    expect(firstStopDefault).toBeGreaterThan(brakeDeclIndex)
+  })
+
+  it('uses BRAKE as the default stop action on run_for_degrees', () => {
+    const moduleSource = getMotorSource()
+    expect(moduleSource).toMatch(/async def run_for_degrees\([^)]*stop=BRAKE/)
+  })
+
+  it('uses BRAKE as the default stop action on run_for_time', () => {
+    const moduleSource = getMotorSource()
+    expect(moduleSource).toMatch(/async def run_for_time\([^)]*stop=BRAKE/)
+  })
+
+  it('uses BRAKE as the default stop action on run_to_absolute_position', () => {
+    const moduleSource = getMotorSource()
+    expect(moduleSource).toMatch(/async def run_to_absolute_position\([^)]*stop=BRAKE/)
+  })
+
+  it('uses BRAKE as the default stop action on run_to_relative_position', () => {
+    const moduleSource = getMotorSource()
+    expect(moduleSource).toMatch(/async def run_to_relative_position\([^)]*stop=BRAKE/)
+  })
+
+  it('uses BRAKE as the default stop action on motor.stop', () => {
+    const moduleSource = getMotorSource()
+    expect(moduleSource).toMatch(/def stop\([^)]*stop=BRAKE/)
+  })
+
   it('imports _motor_run_to_absolute_position from js', () => {
     const moduleSource = getMotorSource()
     expect(moduleSource).toContain('_motor_run_to_absolute_position')
