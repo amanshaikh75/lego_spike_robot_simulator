@@ -1,6 +1,6 @@
 import { ref, shallowRef } from 'vue'
 import { loadPyodide } from 'pyodide'
-import { motorRun, motorStop, motorRunForDegrees, motorRunForTime, motorRunToAbsolutePosition, motorRunToRelativePosition, motorVelocity, motorAbsolutePosition, motorRelativePosition, addLog, PORTS, DIRECTION } from './useRobotState'
+import { motorRun, motorStop, motorRunForDegrees, motorRunForTime, motorRunToAbsolutePosition, motorRunToRelativePosition, motorResetRelativePosition, motorVelocity, motorAbsolutePosition, motorRelativePosition, addLog, PORTS, DIRECTION } from './useRobotState'
 
 const pyodide = shallowRef(null)
 const isLoading = ref(true)
@@ -56,7 +56,7 @@ async def until(function, timeout=0):
 // Python code for the motor module
 const motorModule = `
 import js
-from js import _motor_run, _motor_stop, _motor_run_for_degrees, _motor_run_for_time, _motor_run_to_absolute_position, _motor_run_to_relative_position, _motor_velocity, _motor_absolute_position, _motor_relative_position
+from js import _motor_run, _motor_stop, _motor_run_for_degrees, _motor_run_for_time, _motor_run_to_absolute_position, _motor_run_to_relative_position, _motor_reset_relative_position, _motor_velocity, _motor_absolute_position, _motor_relative_position
 
 def run(port, velocity, *, acceleration=1000):
     """Run the motor at a constant velocity."""
@@ -77,6 +77,10 @@ def absolute_position(port):
 def relative_position(port):
     """Get the relative position of the motor."""
     return _motor_relative_position(port)
+
+def reset_relative_position(port, position):
+    """Reset the relative position of the motor to the given value (no movement)."""
+    _motor_reset_relative_position(port, position)
 
 async def run_for_degrees(port, degrees, velocity, *, stop=0, acceleration=1000, deceleration=1000):
     """Run the motor for the given number of degrees at the specified velocity."""
@@ -117,6 +121,7 @@ async function initPyodide() {
     globalThis._motor_run_for_time = motorRunForTime
     globalThis._motor_run_to_absolute_position = motorRunToAbsolutePosition
     globalThis._motor_run_to_relative_position = motorRunToRelativePosition
+    globalThis._motor_reset_relative_position = motorResetRelativePosition
     globalThis._motor_velocity = motorVelocity
     globalThis._motor_absolute_position = motorAbsolutePosition
     globalThis._motor_relative_position = motorRelativePosition
