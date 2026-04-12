@@ -162,6 +162,15 @@ export function motorRunForTime(port, duration, velocity) {
   })
 }
 
+export function motorResetRelativePosition(port, position) {
+  if (port < 0 || port > 5) {
+    throw new Error(`Invalid port: ${port}`)
+  }
+  const portName = Object.keys(PORTS).find(key => PORTS[key] === port)
+  state.motors[port].relativePosition = position
+  addLog(`Motor ${portName} relative position reset to ${position}`)
+}
+
 export function motorRunToRelativePosition(port, position, velocity) {
   if (port < 0 || port > 5) {
     throw new Error(`Invalid port: ${port}`)
@@ -305,6 +314,7 @@ export function useRobotState() {
     motorRunForTime,
     motorRunToAbsolutePosition,
     motorRunToRelativePosition,
+    motorResetRelativePosition,
     motorVelocity,
     motorAbsolutePosition,
     motorRelativePosition,

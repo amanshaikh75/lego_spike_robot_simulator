@@ -10,6 +10,7 @@ import {
   motorRunForTime,
   motorRunToAbsolutePosition,
   motorRunToRelativePosition,
+  motorResetRelativePosition,
   addLog,
   clearLogs,
   resetState,
@@ -398,6 +399,72 @@ describe('motorRunToRelativePosition', () => {
   it('throws on invalid port', () => {
     expect(() => motorRunToRelativePosition(-1, 90, 360)).toThrow('Invalid port: -1')
     expect(() => motorRunToRelativePosition(6, 90, 360)).toThrow('Invalid port: 6')
+  })
+})
+
+describe('motorResetRelativePosition', () => {
+  it('sets the relative position to the given value', () => {
+    motorResetRelativePosition(PORTS.A, 500)
+    expect(motorRelativePosition(PORTS.A)).toBe(500)
+  })
+
+  it('supports negative values', () => {
+    motorResetRelativePosition(PORTS.A, -250)
+    expect(motorRelativePosition(PORTS.A)).toBe(-250)
+  })
+
+  it('supports zero to clear accumulated position', async () => {
+    await motorRunToRelativePosition(PORTS.A, 180, 360)
+    expect(motorRelativePosition(PORTS.A)).toBe(180)
+
+    motorResetRelativePosition(PORTS.A, 0)
+    expect(motorRelativePosition(PORTS.A)).toBe(0)
+  })
+
+  it('does not change absolute position', async () => {
+    // Move to absolute position 90 via a relative move of 90
+    await motorRunToRelativePosition(PORTS.A, 90, 360)
+    const absBefore = motorAbsolutePosition(PORTS.A)
+
+    motorResetRelativePosition(PORTS.A, 0)
+
+    expect(motorAbsolutePosition(PORTS.A)).toBe(absBefore)
+  })
+
+  it('does not change motor velocity or running state', () => {
+    motorRun(PORTS.A, 500)
+    motorResetRelativePosition(PORTS.A, 100)
+
+    expect(motorVelocity(PORTS.A)).toBe(500)
+    const { state } = useRobotState()
+    expect(state.motors[PORTS.A].running).toBe(true)
+  })
+
+  it('affects only the specified port', () => {
+    motorResetRelativePosition(PORTS.A, 42)
+    expect(motorRelativePosition(PORTS.A)).toBe(42)
+    expect(motorRelativePosition(PORTS.B)).toBe(0)
+    expect(motorRelativePosition(PORTS.C)).toBe(0)
+  })
+
+  it('logs a descriptive message', () => {
+    motorResetRelativePosition(PORTS.B, 123)
+
+    const { state } = useRobotState()
+    const lastLog = state.logs[state.logs.length - 1]
+    expect(lastLog.message).toBe('Motor B relative position reset to 123')
+  })
+
+  it('allows subsequent run_to_relative_position to use the new baseline', async () => {
+    motorResetRelativePosition(PORTS.A, 1000)
+    await motorRunToRelativePosition(PORTS.A, 1090, 360)
+
+    expect(motorRelativePosition(PORTS.A)).toBe(1090)
+  })
+
+  it('throws on invalid port', () => {
+    expect(() => motorResetRelativePosition(-1, 0)).toThrow('Invalid port: -1')
+    expect(() => motorResetRelativePosition(6, 0)).toThrow('Invalid port: 6')
   })
 })
 

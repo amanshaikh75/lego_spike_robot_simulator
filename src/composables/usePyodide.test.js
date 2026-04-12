@@ -133,6 +133,22 @@ describe('motor module definition', () => {
     const moduleSource = getMotorSource()
     expect(moduleSource).toContain('await _motor_run_to_relative_position(port, position, velocity)')
   })
+
+  it('defines reset_relative_position as synchronous function', () => {
+    const moduleSource = getMotorSource()
+    expect(moduleSource).toContain('def reset_relative_position(port, position):')
+    expect(moduleSource).not.toContain('async def reset_relative_position')
+  })
+
+  it('imports _motor_reset_relative_position from js', () => {
+    const moduleSource = getMotorSource()
+    expect(moduleSource).toContain('_motor_reset_relative_position')
+  })
+
+  it('reset_relative_position delegates to the JS bridge', () => {
+    const moduleSource = getMotorSource()
+    expect(moduleSource).toContain('_motor_reset_relative_position(port, position)')
+  })
 })
 
 // Helper: read the source file and extract the runloop module string
