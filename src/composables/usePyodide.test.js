@@ -118,6 +118,21 @@ describe('motor module definition', () => {
     const moduleSource = getMotorSource()
     expect(moduleSource).toContain('_motor_run_to_absolute_position')
   })
+
+  it('defines run_to_relative_position as async function', () => {
+    const moduleSource = getMotorSource()
+    expect(moduleSource).toContain('async def run_to_relative_position(port, position, velocity,')
+  })
+
+  it('imports _motor_run_to_relative_position from js', () => {
+    const moduleSource = getMotorSource()
+    expect(moduleSource).toContain('_motor_run_to_relative_position')
+  })
+
+  it('run_to_relative_position awaits the JS bridge', () => {
+    const moduleSource = getMotorSource()
+    expect(moduleSource).toContain('await _motor_run_to_relative_position(port, position, velocity)')
+  })
 })
 
 // Helper: read the source file and extract the runloop module string

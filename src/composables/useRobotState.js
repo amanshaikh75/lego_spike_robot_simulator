@@ -162,6 +162,55 @@ export function motorRunForTime(port, duration, velocity) {
   })
 }
 
+export function motorRunToRelativePosition(port, position, velocity) {
+  if (port < 0 || port > 5) {
+    throw new Error(`Invalid port: ${port}`)
+  }
+  const portName = Object.keys(PORTS).find(key => PORTS[key] === port)
+  const currentRelPos = state.motors[port].relativePosition
+  const degreesToMove = position - currentRelPos
+  const absVelocity = Math.abs(velocity)
+
+  if (degreesToMove === 0) {
+    addLog(`Motor ${portName} already at relative position ${position}`)
+    return Promise.resolve()
+  }
+
+  const absDegrees = Math.abs(degreesToMove)
+  const moveDirection = degreesToMove >= 0 ? 1 : -1
+  const durationMs = (absDegrees / absVelocity) * 1000
+
+  state.motors[port].velocity = absVelocity * moveDirection
+  state.motors[port].running = true
+  addLog(`Motor ${portName} running to relative position ${position} at ${velocity} deg/sec`)
+
+  return new Promise((resolve) => {
+    const startRelPosition = state.motors[port].relativePosition
+    const startAbsPosition = state.motors[port].absolutePosition
+    const startTime = performance.now()
+
+    const interval = setInterval(() => {
+      const elapsed = performance.now() - startTime
+      const progress = Math.min(elapsed / durationMs, 1)
+      const movedDegrees = absDegrees * progress * moveDirection
+
+      state.motors[port].relativePosition = startRelPosition + movedDegrees
+      state.motors[port].absolutePosition = ((startAbsPosition + movedDegrees) % 360 + 360) % 360
+
+      if (progress >= 1) {
+        clearInterval(interval)
+        // Snap to exact target position
+        state.motors[port].relativePosition = position
+        state.motors[port].absolutePosition = ((startAbsPosition + degreesToMove) % 360 + 360) % 360
+        state.motors[port].velocity = 0
+        state.motors[port].running = false
+        addLog(`Motor ${portName} reached relative position ${position}`)
+        resolve()
+      }
+    }, 50)
+  })
+}
+
 export function motorRunToAbsolutePosition(port, position, velocity, direction = DIRECTION.SHORTEST_PATH) {
   if (port < 0 || port > 5) {
     throw new Error(`Invalid port: ${port}`)
@@ -255,6 +304,7 @@ export function useRobotState() {
     motorRunForDegrees,
     motorRunForTime,
     motorRunToAbsolutePosition,
+    motorRunToRelativePosition,
     motorVelocity,
     motorAbsolutePosition,
     motorRelativePosition,
