@@ -9,6 +9,7 @@ import {
   motorRelativePosition,
   motorRunForTime,
   motorRunToAbsolutePosition,
+  motorRunToRelativePosition,
   addLog,
   clearLogs,
   resetState,
@@ -304,6 +305,99 @@ describe('motorRunToAbsolutePosition', () => {
     expect(state.motors[PORTS.A].velocity).toBe(360)
 
     await promise
+  })
+})
+
+describe('motorRunToRelativePosition', () => {
+  it('moves forward when target is ahead of current relative position', async () => {
+    await motorRunToRelativePosition(PORTS.A, 180, 360)
+
+    expect(motorRelativePosition(PORTS.A)).toBe(180)
+    const { state } = useRobotState()
+    expect(state.motors[PORTS.A].running).toBe(false)
+    expect(state.motors[PORTS.A].velocity).toBe(0)
+  })
+
+  it('moves backward when target is behind current relative position', async () => {
+    // Move to +180 first
+    await motorRunToRelativePosition(PORTS.A, 180, 360)
+    // Then move back to +90 (should move -90)
+    await motorRunToRelativePosition(PORTS.A, 90, 360)
+
+    expect(motorRelativePosition(PORTS.A)).toBe(90)
+  })
+
+  it('supports negative target positions', async () => {
+    await motorRunToRelativePosition(PORTS.A, -90, 360)
+
+    expect(motorRelativePosition(PORTS.A)).toBe(-90)
+  })
+
+  it('updates absolute position with wrapping', async () => {
+    // Move to relative 540 → absolute should wrap to 180
+    await motorRunToRelativePosition(PORTS.A, 540, 360)
+
+    expect(motorAbsolutePosition(PORTS.A)).toBeCloseTo(180, 0)
+    expect(motorRelativePosition(PORTS.A)).toBe(540)
+  })
+
+  it('does not wrap relative position', async () => {
+    // Relative positions should accumulate, not wrap
+    await motorRunToRelativePosition(PORTS.A, 720, 360)
+
+    expect(motorRelativePosition(PORTS.A)).toBe(720)
+  })
+
+  it('resolves immediately when already at target position', async () => {
+    await motorRunToRelativePosition(PORTS.A, 0, 360)
+
+    expect(motorRelativePosition(PORTS.A)).toBe(0)
+    const { state } = useRobotState()
+    const messages = state.logs.map(l => l.message)
+    expect(messages).toContain('Motor A already at relative position 0')
+  })
+
+  it('logs start and completion messages', async () => {
+    await motorRunToRelativePosition(PORTS.A, 90, 360)
+
+    const { state } = useRobotState()
+    const messages = state.logs.map(l => l.message)
+    expect(messages).toContain('Motor A running to relative position 90 at 360 deg/sec')
+    expect(messages).toContain('Motor A reached relative position 90')
+  })
+
+  it('sets velocity and running state during execution', async () => {
+    const promise = motorRunToRelativePosition(PORTS.A, 360, 360)
+
+    const { state } = useRobotState()
+    expect(state.motors[PORTS.A].running).toBe(true)
+    expect(state.motors[PORTS.A].velocity).toBe(360)
+
+    await promise
+  })
+
+  it('uses negative velocity direction when moving backward', async () => {
+    // Move to +90 first
+    await motorRunToRelativePosition(PORTS.A, 90, 360)
+    // Kick off move back to 0; velocity should be negative during travel
+    const promise = motorRunToRelativePosition(PORTS.A, 0, 360)
+
+    const { state } = useRobotState()
+    expect(state.motors[PORTS.A].velocity).toBe(-360)
+
+    await promise
+  })
+
+  it('updates relative position cumulatively across calls', async () => {
+    await motorRunToRelativePosition(PORTS.A, 90, 360)
+    await motorRunToRelativePosition(PORTS.A, 270, 360)
+
+    expect(motorRelativePosition(PORTS.A)).toBe(270)
+  })
+
+  it('throws on invalid port', () => {
+    expect(() => motorRunToRelativePosition(-1, 90, 360)).toThrow('Invalid port: -1')
+    expect(() => motorRunToRelativePosition(6, 90, 360)).toThrow('Invalid port: 6')
   })
 })
 
