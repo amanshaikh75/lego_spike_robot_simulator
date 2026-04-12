@@ -396,16 +396,3 @@ spike-simulator/
 1. Create test programs for each milestone
 2. Compare output with real Spike Prime hub where possible
 3. Manual testing via the web UI
-
----
-
-## Next Steps
-
-Ready to begin **Milestone 1.1: Project Setup & Basic Motor**
-
-Tasks:
-1. Initialize Vue + Vite project
-2. Set up Pyodide integration
-3. Implement `hub.port` module
-4. Implement basic `motor.run()` and `motor.stop()`
-5. Create CodeInput and Console components
