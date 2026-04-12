@@ -1,6 +1,6 @@
 import { ref, shallowRef } from 'vue'
 import { loadPyodide } from 'pyodide'
-import { motorRun, motorStop, motorRunForDegrees, motorRunForTime, motorRunToAbsolutePosition, motorRunToRelativePosition, motorResetRelativePosition, motorVelocity, motorAbsolutePosition, motorRelativePosition, addLog, PORTS, DIRECTION } from './useRobotState'
+import { motorRun, motorStop, motorRunForDegrees, motorRunForTime, motorRunToAbsolutePosition, motorRunToRelativePosition, motorResetRelativePosition, motorVelocity, motorAbsolutePosition, motorRelativePosition, addLog, PORTS, DIRECTION, STOP_ACTION } from './useRobotState'
 
 const pyodide = shallowRef(null)
 const isLoading = ref(true)
@@ -58,11 +58,25 @@ const motorModule = `
 import js
 from js import _motor_run, _motor_stop, _motor_run_for_degrees, _motor_run_for_time, _motor_run_to_absolute_position, _motor_run_to_relative_position, _motor_reset_relative_position, _motor_velocity, _motor_absolute_position, _motor_relative_position
 
+# Direction constants (for run_to_absolute_position)
+SHORTEST_PATH = ${DIRECTION.SHORTEST_PATH}
+LONGEST_PATH = ${DIRECTION.LONGEST_PATH}
+CLOCKWISE = ${DIRECTION.CLOCKWISE}
+COUNTERCLOCKWISE = ${DIRECTION.COUNTERCLOCKWISE}
+
+# Stop action constants (for the stop= kwarg of motor commands)
+COAST = ${STOP_ACTION.COAST}
+BRAKE = ${STOP_ACTION.BRAKE}
+HOLD = ${STOP_ACTION.HOLD}
+CONTINUE = ${STOP_ACTION.CONTINUE}
+SMART_COAST = ${STOP_ACTION.SMART_COAST}
+SMART_BRAKE = ${STOP_ACTION.SMART_BRAKE}
+
 def run(port, velocity, *, acceleration=1000):
     """Run the motor at a constant velocity."""
     _motor_run(port, velocity)
 
-def stop(port, *, stop=0):
+def stop(port, *, stop=BRAKE):
     """Stop the motor."""
     _motor_stop(port)
 
@@ -82,24 +96,19 @@ def reset_relative_position(port, position):
     """Reset the relative position of the motor to the given value (no movement)."""
     _motor_reset_relative_position(port, position)
 
-async def run_for_degrees(port, degrees, velocity, *, stop=0, acceleration=1000, deceleration=1000):
+async def run_for_degrees(port, degrees, velocity, *, stop=BRAKE, acceleration=1000, deceleration=1000):
     """Run the motor for the given number of degrees at the specified velocity."""
     await _motor_run_for_degrees(port, degrees, velocity)
 
-async def run_for_time(port, duration, velocity, *, stop=0, acceleration=1000, deceleration=1000):
+async def run_for_time(port, duration, velocity, *, stop=BRAKE, acceleration=1000, deceleration=1000):
     """Run the motor for the given duration (ms) at the specified velocity."""
     await _motor_run_for_time(port, duration, velocity)
 
-SHORTEST_PATH = ${DIRECTION.SHORTEST_PATH}
-LONGEST_PATH = ${DIRECTION.LONGEST_PATH}
-CLOCKWISE = ${DIRECTION.CLOCKWISE}
-COUNTERCLOCKWISE = ${DIRECTION.COUNTERCLOCKWISE}
-
-async def run_to_absolute_position(port, position, velocity, *, direction=SHORTEST_PATH, stop=0, acceleration=1000, deceleration=1000):
+async def run_to_absolute_position(port, position, velocity, *, direction=SHORTEST_PATH, stop=BRAKE, acceleration=1000, deceleration=1000):
     """Run the motor to the given absolute position (0-359)."""
     await _motor_run_to_absolute_position(port, position, velocity, direction)
 
-async def run_to_relative_position(port, position, velocity, *, stop=0, acceleration=1000, deceleration=1000):
+async def run_to_relative_position(port, position, velocity, *, stop=BRAKE, acceleration=1000, deceleration=1000):
     """Run the motor to the given relative position (in degrees)."""
     await _motor_run_to_relative_position(port, position, velocity)
 `

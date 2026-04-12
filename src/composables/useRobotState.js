@@ -18,6 +18,16 @@ export const DIRECTION = {
   COUNTERCLOCKWISE: 3
 }
 
+// Motor stop action constants (match SPIKE 3 numeric values)
+export const STOP_ACTION = {
+  COAST: 0,
+  BRAKE: 1,
+  HOLD: 2,
+  CONTINUE: 3,
+  SMART_COAST: 4,
+  SMART_BRAKE: 5
+}
+
 // Create initial motor state
 function createMotorState() {
   return {
@@ -308,6 +318,7 @@ export function useRobotState() {
     state: readonly(state),
     PORTS,
     DIRECTION,
+    STOP_ACTION,
     motorRun,
     motorStop,
     motorRunForDegrees,

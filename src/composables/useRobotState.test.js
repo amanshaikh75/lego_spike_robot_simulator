@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import {
   PORTS,
   DIRECTION,
+  STOP_ACTION,
   motorRun,
   motorStop,
   motorVelocity,
@@ -207,6 +208,28 @@ describe('DIRECTION', () => {
     expect(DIRECTION.LONGEST_PATH).toBe(1)
     expect(DIRECTION.CLOCKWISE).toBe(2)
     expect(DIRECTION.COUNTERCLOCKWISE).toBe(3)
+  })
+})
+
+describe('STOP_ACTION', () => {
+  it('defines all SPIKE 3 stop action constants', () => {
+    expect(STOP_ACTION.COAST).toBe(0)
+    expect(STOP_ACTION.BRAKE).toBe(1)
+    expect(STOP_ACTION.HOLD).toBe(2)
+    expect(STOP_ACTION.CONTINUE).toBe(3)
+    expect(STOP_ACTION.SMART_COAST).toBe(4)
+    expect(STOP_ACTION.SMART_BRAKE).toBe(5)
+  })
+
+  it('has unique values for each constant', () => {
+    const values = Object.values(STOP_ACTION)
+    const unique = new Set(values)
+    expect(unique.size).toBe(values.length)
+  })
+
+  it('is exported from the useRobotState composable', () => {
+    const { STOP_ACTION: fromComposable } = useRobotState()
+    expect(fromComposable).toBe(STOP_ACTION)
   })
 })
 
