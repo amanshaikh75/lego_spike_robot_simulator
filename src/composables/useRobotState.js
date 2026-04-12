@@ -38,6 +38,14 @@ function createMotorState() {
   }
 }
 
+// Validate that a value is one of the defined motor ports.
+// Throws if the value is not an integer or is outside the known PORTS set.
+function assertValidPort(port) {
+  if (!Number.isInteger(port) || !Object.values(PORTS).includes(port)) {
+    throw new Error(`Invalid port: ${port}`)
+  }
+}
+
 // Global robot state
 const state = reactive({
   motors: {
@@ -53,9 +61,7 @@ const state = reactive({
 
 // Motor control functions
 export function motorRun(port, velocity) {
-  if (port < 0 || port > 5) {
-    throw new Error(`Invalid port: ${port}`)
-  }
+  assertValidPort(port)
   state.motors[port].velocity = velocity
   state.motors[port].running = true
 
@@ -64,9 +70,7 @@ export function motorRun(port, velocity) {
 }
 
 export function motorStop(port) {
-  if (port < 0 || port > 5) {
-    throw new Error(`Invalid port: ${port}`)
-  }
+  assertValidPort(port)
   state.motors[port].velocity = 0
   state.motors[port].running = false
 
@@ -75,30 +79,22 @@ export function motorStop(port) {
 }
 
 export function motorVelocity(port) {
-  if (port < 0 || port > 5) {
-    throw new Error(`Invalid port: ${port}`)
-  }
+  assertValidPort(port)
   return state.motors[port].velocity
 }
 
 export function motorAbsolutePosition(port) {
-  if (port < 0 || port > 5) {
-    throw new Error(`Invalid port: ${port}`)
-  }
+  assertValidPort(port)
   return state.motors[port].absolutePosition
 }
 
 export function motorRelativePosition(port) {
-  if (port < 0 || port > 5) {
-    throw new Error(`Invalid port: ${port}`)
-  }
+  assertValidPort(port)
   return state.motors[port].relativePosition
 }
 
 export function motorRunForDegrees(port, degrees, velocity) {
-  if (port < 0 || port > 5) {
-    throw new Error(`Invalid port: ${port}`)
-  }
+  assertValidPort(port)
   const portName = Object.keys(PORTS).find(key => PORTS[key] === port)
   const absDegrees = Math.abs(degrees)
   const direction = degrees >= 0 ? 1 : -1
@@ -134,9 +130,7 @@ export function motorRunForDegrees(port, degrees, velocity) {
 }
 
 export function motorRunForTime(port, duration, velocity) {
-  if (port < 0 || port > 5) {
-    throw new Error(`Invalid port: ${port}`)
-  }
+  assertValidPort(port)
   const portName = Object.keys(PORTS).find(key => PORTS[key] === port)
   const direction = velocity >= 0 ? 1 : -1
   const absVelocity = Math.abs(velocity)
@@ -173,18 +167,14 @@ export function motorRunForTime(port, duration, velocity) {
 }
 
 export function motorResetRelativePosition(port, position) {
-  if (port < 0 || port > 5) {
-    throw new Error(`Invalid port: ${port}`)
-  }
+  assertValidPort(port)
   const portName = Object.keys(PORTS).find(key => PORTS[key] === port)
   state.motors[port].relativePosition = position
   addLog(`Motor ${portName} relative position reset to ${position}`)
 }
 
 export function motorRunToRelativePosition(port, position, velocity) {
-  if (port < 0 || port > 5) {
-    throw new Error(`Invalid port: ${port}`)
-  }
+  assertValidPort(port)
   const portName = Object.keys(PORTS).find(key => PORTS[key] === port)
   const currentRelPos = state.motors[port].relativePosition
   const degreesToMove = position - currentRelPos
@@ -231,9 +221,7 @@ export function motorRunToRelativePosition(port, position, velocity) {
 }
 
 export function motorRunToAbsolutePosition(port, position, velocity, direction = DIRECTION.SHORTEST_PATH) {
-  if (port < 0 || port > 5) {
-    throw new Error(`Invalid port: ${port}`)
-  }
+  assertValidPort(port)
   const portName = Object.keys(PORTS).find(key => PORTS[key] === port)
   const currentAbsPos = state.motors[port].absolutePosition
   const absVelocity = Math.abs(velocity)
