@@ -511,6 +511,53 @@ describe('logging', () => {
   })
 })
 
+describe('port validation', () => {
+  // assertValidPort is private; exercise it via motorRun. Every motor function
+  // uses the same helper, so these cases apply uniformly across the module.
+
+  it('rejects negative integers', () => {
+    expect(() => motorRun(-1, 100)).toThrow('Invalid port: -1')
+  })
+
+  it('rejects integers above the valid range', () => {
+    expect(() => motorRun(6, 100)).toThrow('Invalid port: 6')
+    expect(() => motorRun(100, 100)).toThrow('Invalid port: 100')
+  })
+
+  it('rejects non-integer numbers', () => {
+    expect(() => motorRun(2.5, 100)).toThrow('Invalid port: 2.5')
+    expect(() => motorRun(0.1, 100)).toThrow('Invalid port: 0.1')
+  })
+
+  it('rejects NaN', () => {
+    expect(() => motorRun(NaN, 100)).toThrow('Invalid port: NaN')
+  })
+
+  it('rejects non-number types', () => {
+    expect(() => motorRun('A', 100)).toThrow('Invalid port: A')
+    expect(() => motorRun(null, 100)).toThrow('Invalid port: null')
+    expect(() => motorRun(undefined, 100)).toThrow('Invalid port: undefined')
+    expect(() => motorRun({}, 100)).toThrow('Invalid port:')
+  })
+
+  it('accepts every value defined in PORTS', () => {
+    for (const port of Object.values(PORTS)) {
+      expect(() => motorRun(port, 100)).not.toThrow()
+    }
+  })
+
+  it('applies to every motor function that takes a port', () => {
+    expect(() => motorStop(2.5)).toThrow('Invalid port: 2.5')
+    expect(() => motorVelocity('A')).toThrow('Invalid port: A')
+    expect(() => motorAbsolutePosition(6)).toThrow('Invalid port: 6')
+    expect(() => motorRelativePosition(-1)).toThrow('Invalid port: -1')
+    expect(() => motorRunForTime(null, 100, 360)).toThrow('Invalid port: null')
+    expect(() => motorRunToAbsolutePosition(NaN, 90, 360)).toThrow('Invalid port: NaN')
+    expect(() => motorRunToRelativePosition(2.5, 90, 360)).toThrow('Invalid port: 2.5')
+    expect(() => motorResetRelativePosition(6, 0)).toThrow('Invalid port: 6')
+  })
+})
+
 describe('resetState', () => {
   it('resets all motors to initial values', () => {
     motorRun(PORTS.A, 1000)
