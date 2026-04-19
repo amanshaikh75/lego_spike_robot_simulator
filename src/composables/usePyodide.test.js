@@ -194,6 +194,47 @@ describe('motor module definition', () => {
   })
 })
 
+describe('motor_pair module definition', () => {
+  it('defines PAIR_1, PAIR_2, PAIR_3 constants interpolated from PAIRS', () => {
+    const moduleSource = getMotorPairSource()
+    expect(moduleSource).toContain('PAIR_1 = ${PAIRS.PAIR_1}')
+    expect(moduleSource).toContain('PAIR_2 = ${PAIRS.PAIR_2}')
+    expect(moduleSource).toContain('PAIR_3 = ${PAIRS.PAIR_3}')
+  })
+
+  it('imports pair/unpair bridges from js', () => {
+    const moduleSource = getMotorPairSource()
+    expect(moduleSource).toContain('from js import _motor_pair_pair, _motor_pair_unpair')
+  })
+
+  it('defines pair as synchronous function delegating to the JS bridge', () => {
+    const moduleSource = getMotorPairSource()
+    expect(moduleSource).toContain('def pair(pair, left_motor, right_motor):')
+    expect(moduleSource).not.toContain('async def pair')
+    expect(moduleSource).toContain('_motor_pair_pair(pair, left_motor, right_motor)')
+  })
+
+  it('defines unpair as synchronous function delegating to the JS bridge', () => {
+    const moduleSource = getMotorPairSource()
+    expect(moduleSource).toContain('def unpair(pair):')
+    expect(moduleSource).not.toContain('async def unpair')
+    expect(moduleSource).toContain('_motor_pair_unpair(pair)')
+  })
+})
+
+describe('motor_pair module registration', () => {
+  it('wires _motor_pair_pair and _motor_pair_unpair onto globalThis', () => {
+    const source = getFullSource()
+    expect(source).toContain('globalThis._motor_pair_pair = motorPairPair')
+    expect(source).toContain('globalThis._motor_pair_unpair = motorPairUnpair')
+  })
+
+  it('registers motor_pair in sys.modules', () => {
+    const source = getFullSource()
+    expect(source).toContain("sys.modules['motor_pair'] = motor_pair")
+  })
+})
+
 // Helper: read the source file and extract the runloop module string
 function getRunloopSource() {
   const fs = require('fs')
@@ -217,6 +258,19 @@ function getMotorSource() {
   )
   const match = source.match(/const motorModule = `([\s\S]*?)`/)
   if (!match) throw new Error('Could not find motorModule in source')
+  return match[1]
+}
+
+// Helper: read the source file and extract the motor_pair module string
+function getMotorPairSource() {
+  const fs = require('fs')
+  const path = require('path')
+  const source = fs.readFileSync(
+    path.join(__dirname, 'usePyodide.js'),
+    'utf-8'
+  )
+  const match = source.match(/const motorPairModule = `([\s\S]*?)`/)
+  if (!match) throw new Error('Could not find motorPairModule in source')
   return match[1]
 }
 
