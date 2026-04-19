@@ -1,6 +1,6 @@
 import { ref, shallowRef } from 'vue'
 import { loadPyodide } from 'pyodide'
-import { motorRun, motorStop, motorRunForDegrees, motorRunForTime, motorRunToAbsolutePosition, motorRunToRelativePosition, motorResetRelativePosition, motorVelocity, motorAbsolutePosition, motorRelativePosition, addLog, PORTS, DIRECTION, STOP_ACTION } from './useRobotState'
+import { motorRun, motorStop, motorRunForDegrees, motorRunForTime, motorRunToAbsolutePosition, motorRunToRelativePosition, motorResetRelativePosition, motorVelocity, motorAbsolutePosition, motorRelativePosition, motorPairPair, motorPairUnpair, addLog, PORTS, DIRECTION, STOP_ACTION, PAIRS } from './useRobotState'
 
 const pyodide = shallowRef(null)
 const isLoading = ref(true)
@@ -113,6 +113,24 @@ async def run_to_relative_position(port, position, velocity, *, stop=BRAKE, acce
     await _motor_run_to_relative_position(port, position, velocity)
 `
 
+// Python code for the motor_pair module
+const motorPairModule = `
+from js import _motor_pair_pair, _motor_pair_unpair
+
+# Pair slot constants
+PAIR_1 = ${PAIRS.PAIR_1}
+PAIR_2 = ${PAIRS.PAIR_2}
+PAIR_3 = ${PAIRS.PAIR_3}
+
+def pair(pair, left_motor, right_motor):
+    """Bind two motor ports to a pair slot for synchronized control."""
+    _motor_pair_pair(pair, left_motor, right_motor)
+
+def unpair(pair):
+    """Release the motors bound to the given pair slot."""
+    _motor_pair_unpair(pair)
+`
+
 async function initPyodide() {
   try {
     isLoading.value = true
@@ -134,6 +152,8 @@ async function initPyodide() {
     globalThis._motor_velocity = motorVelocity
     globalThis._motor_absolute_position = motorAbsolutePosition
     globalThis._motor_relative_position = motorRelativePosition
+    globalThis._motor_pair_pair = motorPairPair
+    globalThis._motor_pair_unpair = motorPairUnpair
     globalThis._add_log = addLog
 
     // Create the hub package with port module
@@ -166,6 +186,14 @@ import types
 runloop = types.ModuleType('runloop')
 exec('''${runloopModule}''', runloop.__dict__)
 sys.modules['runloop'] = runloop
+`)
+
+    // Create the motor_pair module
+    await pyodide.value.runPythonAsync(`
+import types
+motor_pair = types.ModuleType('motor_pair')
+exec('''${motorPairModule}''', motor_pair.__dict__)
+sys.modules['motor_pair'] = motor_pair
 `)
 
     // Extend the time module with MicroPython-compatible functions
