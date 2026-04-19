@@ -3,6 +3,7 @@ import {
   PORTS,
   DIRECTION,
   STOP_ACTION,
+  PAIRS,
   motorRun,
   motorStop,
   motorVelocity,
@@ -12,6 +13,8 @@ import {
   motorRunToAbsolutePosition,
   motorRunToRelativePosition,
   motorResetRelativePosition,
+  motorPairPair,
+  motorPairUnpair,
   addLog,
   clearLogs,
   resetState,
@@ -579,5 +582,155 @@ describe('resetState', () => {
 
     const { state } = useRobotState()
     expect(state.logs).toHaveLength(0)
+  })
+
+  it('clears all motor pair slots', () => {
+    motorPairPair(PAIRS.PAIR_1, PORTS.A, PORTS.B)
+    motorPairPair(PAIRS.PAIR_2, PORTS.C, PORTS.D)
+    resetState()
+
+    const { state } = useRobotState()
+    for (const pair of Object.values(PAIRS)) {
+      expect(state.motorPairs[pair]).toBeNull()
+    }
+  })
+})
+
+describe('PAIRS', () => {
+  it('defines PAIR_1, PAIR_2, PAIR_3 as 0, 1, 2', () => {
+    expect(PAIRS.PAIR_1).toBe(0)
+    expect(PAIRS.PAIR_2).toBe(1)
+    expect(PAIRS.PAIR_3).toBe(2)
+  })
+
+  it('has unique values for each constant', () => {
+    const values = Object.values(PAIRS)
+    expect(new Set(values).size).toBe(values.length)
+  })
+
+  it('is exported from the useRobotState composable', () => {
+    const { PAIRS: fromComposable } = useRobotState()
+    expect(fromComposable).toBe(PAIRS)
+  })
+})
+
+describe('motorPairPair', () => {
+  it('records the pair in robot state', () => {
+    motorPairPair(PAIRS.PAIR_1, PORTS.A, PORTS.B)
+
+    const { state } = useRobotState()
+    expect(state.motorPairs[PAIRS.PAIR_1]).toEqual({
+      left: PORTS.A,
+      right: PORTS.B
+    })
+  })
+
+  it('leaves other pair slots untouched', () => {
+    motorPairPair(PAIRS.PAIR_2, PORTS.C, PORTS.D)
+
+    const { state } = useRobotState()
+    expect(state.motorPairs[PAIRS.PAIR_1]).toBeNull()
+    expect(state.motorPairs[PAIRS.PAIR_3]).toBeNull()
+  })
+
+  it('logs a descriptive message', () => {
+    motorPairPair(PAIRS.PAIR_1, PORTS.A, PORTS.B)
+
+    const { state } = useRobotState()
+    const lastLog = state.logs[state.logs.length - 1]
+    expect(lastLog.message).toBe('Paired PAIR_1: left=A, right=B')
+  })
+
+  it('allows overwriting an existing pair in the same slot', () => {
+    motorPairPair(PAIRS.PAIR_1, PORTS.A, PORTS.B)
+    motorPairPair(PAIRS.PAIR_1, PORTS.C, PORTS.D)
+
+    const { state } = useRobotState()
+    expect(state.motorPairs[PAIRS.PAIR_1]).toEqual({
+      left: PORTS.C,
+      right: PORTS.D
+    })
+  })
+
+  it('rejects pairing a motor with itself', () => {
+    expect(() => motorPairPair(PAIRS.PAIR_1, PORTS.A, PORTS.A)).toThrow(
+      'Cannot pair motor A with itself'
+    )
+  })
+
+  it('rejects a motor already used by another pair slot', () => {
+    motorPairPair(PAIRS.PAIR_1, PORTS.A, PORTS.B)
+
+    expect(() => motorPairPair(PAIRS.PAIR_2, PORTS.A, PORTS.C)).toThrow(
+      'Motor already in use by PAIR_1'
+    )
+    expect(() => motorPairPair(PAIRS.PAIR_2, PORTS.C, PORTS.B)).toThrow(
+      'Motor already in use by PAIR_1'
+    )
+  })
+
+  it('allows reusing a motor after the prior pair is unpaired', () => {
+    motorPairPair(PAIRS.PAIR_1, PORTS.A, PORTS.B)
+    motorPairUnpair(PAIRS.PAIR_1)
+
+    expect(() => motorPairPair(PAIRS.PAIR_2, PORTS.A, PORTS.C)).not.toThrow()
+  })
+
+  it('throws on invalid pair slot', () => {
+    expect(() => motorPairPair(-1, PORTS.A, PORTS.B)).toThrow('Invalid pair: -1')
+    expect(() => motorPairPair(3, PORTS.A, PORTS.B)).toThrow('Invalid pair: 3')
+    expect(() => motorPairPair(1.5, PORTS.A, PORTS.B)).toThrow('Invalid pair: 1.5')
+    expect(() => motorPairPair('PAIR_1', PORTS.A, PORTS.B)).toThrow('Invalid pair: PAIR_1')
+  })
+
+  it('throws on invalid left port', () => {
+    expect(() => motorPairPair(PAIRS.PAIR_1, 6, PORTS.B)).toThrow('Invalid port: 6')
+    expect(() => motorPairPair(PAIRS.PAIR_1, 'A', PORTS.B)).toThrow('Invalid port: A')
+  })
+
+  it('throws on invalid right port', () => {
+    expect(() => motorPairPair(PAIRS.PAIR_1, PORTS.A, -1)).toThrow('Invalid port: -1')
+    expect(() => motorPairPair(PAIRS.PAIR_1, PORTS.A, null)).toThrow('Invalid port: null')
+  })
+})
+
+describe('motorPairUnpair', () => {
+  it('clears the pair from robot state', () => {
+    motorPairPair(PAIRS.PAIR_1, PORTS.A, PORTS.B)
+    motorPairUnpair(PAIRS.PAIR_1)
+
+    const { state } = useRobotState()
+    expect(state.motorPairs[PAIRS.PAIR_1]).toBeNull()
+  })
+
+  it('leaves other pair slots untouched', () => {
+    motorPairPair(PAIRS.PAIR_1, PORTS.A, PORTS.B)
+    motorPairPair(PAIRS.PAIR_2, PORTS.C, PORTS.D)
+    motorPairUnpair(PAIRS.PAIR_1)
+
+    const { state } = useRobotState()
+    expect(state.motorPairs[PAIRS.PAIR_2]).toEqual({
+      left: PORTS.C,
+      right: PORTS.D
+    })
+  })
+
+  it('logs a descriptive message', () => {
+    motorPairPair(PAIRS.PAIR_2, PORTS.A, PORTS.B)
+    motorPairUnpair(PAIRS.PAIR_2)
+
+    const { state } = useRobotState()
+    const lastLog = state.logs[state.logs.length - 1]
+    expect(lastLog.message).toBe('Unpaired PAIR_2')
+  })
+
+  it('throws when the slot has no pair', () => {
+    expect(() => motorPairUnpair(PAIRS.PAIR_1)).toThrow('PAIR_1 is not paired')
+  })
+
+  it('throws on invalid pair slot', () => {
+    expect(() => motorPairUnpair(-1)).toThrow('Invalid pair: -1')
+    expect(() => motorPairUnpair(3)).toThrow('Invalid pair: 3')
+    expect(() => motorPairUnpair('PAIR_1')).toThrow('Invalid pair: PAIR_1')
   })
 })
