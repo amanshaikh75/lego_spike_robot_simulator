@@ -34,6 +34,9 @@ Web-based simulator for LEGO Spike Prime robots. Tests Python code before deploy
 - Task 3 (extended `motor` commands): COMPLETE — `run_for_degrees`, `run_for_time`, `run_to_absolute_position`, `run_to_relative_position` and `reset_relative_position` all done
 - Task 4 (motor constants): COMPLETE — direction constants (CLOCKWISE, COUNTERCLOCKWISE, SHORTEST_PATH, LONGEST_PATH) plus stop actions (BRAKE, COAST, HOLD, CONTINUE, SMART_COAST, SMART_BRAKE). BRAKE is now the default `stop=` value across all motor commands.
 
-#### Milestone 1.3: Motor Pair & Drivebase — NOT STARTED
+#### Milestone 1.3: Motor Pair & Drivebase — IN PROGRESS
+- Task 1 (`motor_pair` stub + constants + `pair`/`unpair`): COMPLETE — `PAIR_1`, `PAIR_2`, `PAIR_3` constants added; `pair()`/`unpair()` bookkeeping in robot state (validates ports/slot, prevents pairing a motor with itself or across slots)
+- Task 2 (synchronous `move`, `move_tank`, `stop`): NOT STARTED
+- Task 3 (awaitable `move_for_degrees`/`move_for_time`, `move_tank_for_degrees`/`move_tank_for_time`): NOT STARTED
 #### Milestone 1.4: IMU / Motion Sensor — NOT STARTED
 #### Milestone 1.5: Dashboard & Polish — NOT STARTED

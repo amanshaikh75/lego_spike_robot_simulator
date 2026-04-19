@@ -28,6 +28,13 @@ export const STOP_ACTION = {
   SMART_BRAKE: 5
 }
 
+// Motor pair slot constants (match SPIKE 3 numeric values)
+export const PAIRS = {
+  PAIR_1: 0,
+  PAIR_2: 1,
+  PAIR_3: 2
+}
+
 // Create initial motor state
 function createMotorState() {
   return {
@@ -46,6 +53,21 @@ function assertValidPort(port) {
   }
 }
 
+// Validate that a value is one of the defined motor pair slots.
+function assertValidPair(pair) {
+  if (!Number.isInteger(pair) || !Object.values(PAIRS).includes(pair)) {
+    throw new Error(`Invalid pair: ${pair}`)
+  }
+}
+
+function portName(port) {
+  return Object.keys(PORTS).find(key => PORTS[key] === port)
+}
+
+function pairName(pair) {
+  return Object.keys(PAIRS).find(key => PAIRS[key] === pair)
+}
+
 // Global robot state
 const state = reactive({
   motors: {
@@ -55,6 +77,11 @@ const state = reactive({
     [PORTS.D]: createMotorState(),
     [PORTS.E]: createMotorState(),
     [PORTS.F]: createMotorState()
+  },
+  motorPairs: {
+    [PAIRS.PAIR_1]: null,
+    [PAIRS.PAIR_2]: null,
+    [PAIRS.PAIR_3]: null
   },
   logs: []
 })
@@ -282,6 +309,34 @@ export function motorRunToAbsolutePosition(port, position, velocity, direction =
   })
 }
 
+// Motor pair bookkeeping
+export function motorPairPair(pair, leftPort, rightPort) {
+  assertValidPair(pair)
+  assertValidPort(leftPort)
+  assertValidPort(rightPort)
+  if (leftPort === rightPort) {
+    throw new Error(`Cannot pair motor ${portName(leftPort)} with itself`)
+  }
+  for (const [slot, existing] of Object.entries(state.motorPairs)) {
+    if (Number(slot) === pair || !existing) continue
+    if (existing.left === leftPort || existing.right === leftPort ||
+        existing.left === rightPort || existing.right === rightPort) {
+      throw new Error(`Motor already in use by ${pairName(Number(slot))}`)
+    }
+  }
+  state.motorPairs[pair] = { left: leftPort, right: rightPort }
+  addLog(`Paired ${pairName(pair)}: left=${portName(leftPort)}, right=${portName(rightPort)}`)
+}
+
+export function motorPairUnpair(pair) {
+  assertValidPair(pair)
+  if (!state.motorPairs[pair]) {
+    throw new Error(`${pairName(pair)} is not paired`)
+  }
+  state.motorPairs[pair] = null
+  addLog(`Unpaired ${pairName(pair)}`)
+}
+
 // Logging functions
 export function addLog(message) {
   const timestamp = new Date().toLocaleTimeString()
@@ -297,6 +352,9 @@ export function resetState() {
   for (const port of Object.values(PORTS)) {
     state.motors[port] = createMotorState()
   }
+  for (const pair of Object.values(PAIRS)) {
+    state.motorPairs[pair] = null
+  }
   clearLogs()
 }
 
@@ -307,6 +365,7 @@ export function useRobotState() {
     PORTS,
     DIRECTION,
     STOP_ACTION,
+    PAIRS,
     motorRun,
     motorStop,
     motorRunForDegrees,
@@ -317,6 +376,8 @@ export function useRobotState() {
     motorVelocity,
     motorAbsolutePosition,
     motorRelativePosition,
+    motorPairPair,
+    motorPairUnpair,
     addLog,
     clearLogs,
     resetState
