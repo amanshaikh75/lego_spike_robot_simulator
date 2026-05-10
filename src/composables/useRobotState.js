@@ -337,6 +337,52 @@ export function motorPairUnpair(pair) {
   addLog(`Unpaired ${pairName(pair)}`)
 }
 
+function assertPaired(pair) {
+  assertValidPair(pair)
+  const slot = state.motorPairs[pair]
+  if (!slot) {
+    throw new Error(`${pairName(pair)} is not paired`)
+  }
+  return slot
+}
+
+// Apply left/right velocities to a pair's underlying motors without per-motor logging.
+function applyPairVelocities(slot, leftVelocity, rightVelocity) {
+  state.motors[slot.left].velocity = leftVelocity
+  state.motors[slot.left].running = leftVelocity !== 0
+  state.motors[slot.right].velocity = rightVelocity
+  state.motors[slot.right].running = rightVelocity !== 0
+}
+
+// Compute left/right velocities from a steering value in [-100, 100].
+// steering=0 drives straight; ±50 stops the inside wheel; ±100 pivots in place.
+function steeringToVelocities(steering, velocity) {
+  const s = Math.max(-100, Math.min(100, steering))
+  if (s >= 0) {
+    return { left: velocity, right: velocity * (1 - s / 50) }
+  }
+  return { left: velocity * (1 + s / 50), right: velocity }
+}
+
+export function motorPairMove(pair, steering, velocity) {
+  const slot = assertPaired(pair)
+  const { left, right } = steeringToVelocities(steering, velocity)
+  applyPairVelocities(slot, left, right)
+  addLog(`${pairName(pair)} moving at steering=${steering}, velocity=${velocity} (L=${left}, R=${right})`)
+}
+
+export function motorPairMoveTank(pair, leftVelocity, rightVelocity) {
+  const slot = assertPaired(pair)
+  applyPairVelocities(slot, leftVelocity, rightVelocity)
+  addLog(`${pairName(pair)} tank: L=${leftVelocity}, R=${rightVelocity}`)
+}
+
+export function motorPairStop(pair) {
+  const slot = assertPaired(pair)
+  applyPairVelocities(slot, 0, 0)
+  addLog(`${pairName(pair)} stopped`)
+}
+
 // Logging functions
 export function addLog(message) {
   const timestamp = new Date().toLocaleTimeString()
@@ -378,6 +424,9 @@ export function useRobotState() {
     motorRelativePosition,
     motorPairPair,
     motorPairUnpair,
+    motorPairMove,
+    motorPairMoveTank,
+    motorPairStop,
     addLog,
     clearLogs,
     resetState
