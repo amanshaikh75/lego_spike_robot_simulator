@@ -1,6 +1,6 @@
 import { ref, shallowRef } from 'vue'
 import { loadPyodide } from 'pyodide'
-import { motorRun, motorStop, motorRunForDegrees, motorRunForTime, motorRunToAbsolutePosition, motorRunToRelativePosition, motorResetRelativePosition, motorVelocity, motorAbsolutePosition, motorRelativePosition, motorPairPair, motorPairUnpair, addLog, PORTS, DIRECTION, STOP_ACTION, PAIRS } from './useRobotState'
+import { motorRun, motorStop, motorRunForDegrees, motorRunForTime, motorRunToAbsolutePosition, motorRunToRelativePosition, motorResetRelativePosition, motorVelocity, motorAbsolutePosition, motorRelativePosition, motorPairPair, motorPairUnpair, motorPairMove, motorPairMoveTank, motorPairStop, addLog, PORTS, DIRECTION, STOP_ACTION, PAIRS } from './useRobotState'
 
 const pyodide = shallowRef(null)
 const isLoading = ref(true)
@@ -115,12 +115,20 @@ async def run_to_relative_position(port, position, velocity, *, stop=BRAKE, acce
 
 // Python code for the motor_pair module
 const motorPairModule = `
-from js import _motor_pair_pair, _motor_pair_unpair
+from js import _motor_pair_pair, _motor_pair_unpair, _motor_pair_move, _motor_pair_move_tank, _motor_pair_stop
 
 # Pair slot constants
 PAIR_1 = ${PAIRS.PAIR_1}
 PAIR_2 = ${PAIRS.PAIR_2}
 PAIR_3 = ${PAIRS.PAIR_3}
+
+# Stop action constants (mirror motor module so motor_pair.stop(stop=...) is self-contained)
+COAST = ${STOP_ACTION.COAST}
+BRAKE = ${STOP_ACTION.BRAKE}
+HOLD = ${STOP_ACTION.HOLD}
+CONTINUE = ${STOP_ACTION.CONTINUE}
+SMART_COAST = ${STOP_ACTION.SMART_COAST}
+SMART_BRAKE = ${STOP_ACTION.SMART_BRAKE}
 
 def pair(pair, left_motor, right_motor):
     """Bind two motor ports to a pair slot for synchronized control."""
@@ -129,6 +137,18 @@ def pair(pair, left_motor, right_motor):
 def unpair(pair):
     """Release the motors bound to the given pair slot."""
     _motor_pair_unpair(pair)
+
+def move(pair, steering, *, velocity=360, acceleration=1000):
+    """Move the paired motors with the given steering (-100 to 100) and velocity."""
+    _motor_pair_move(pair, steering, velocity)
+
+def move_tank(pair, left_velocity, right_velocity, *, acceleration=1000):
+    """Move the paired motors independently at the given left/right velocities."""
+    _motor_pair_move_tank(pair, left_velocity, right_velocity)
+
+def stop(pair, *, stop=BRAKE):
+    """Stop the paired motors."""
+    _motor_pair_stop(pair)
 `
 
 async function initPyodide() {
@@ -154,6 +174,9 @@ async function initPyodide() {
     globalThis._motor_relative_position = motorRelativePosition
     globalThis._motor_pair_pair = motorPairPair
     globalThis._motor_pair_unpair = motorPairUnpair
+    globalThis._motor_pair_move = motorPairMove
+    globalThis._motor_pair_move_tank = motorPairMoveTank
+    globalThis._motor_pair_stop = motorPairStop
     globalThis._add_log = addLog
 
     // Create the hub package with port module

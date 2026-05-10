@@ -202,9 +202,19 @@ describe('motor_pair module definition', () => {
     expect(moduleSource).toContain('PAIR_3 = ${PAIRS.PAIR_3}')
   })
 
-  it('imports pair/unpair bridges from js', () => {
+  it('imports pair/unpair/move/move_tank/stop bridges from js', () => {
     const moduleSource = getMotorPairSource()
-    expect(moduleSource).toContain('from js import _motor_pair_pair, _motor_pair_unpair')
+    expect(moduleSource).toContain('from js import _motor_pair_pair, _motor_pair_unpair, _motor_pair_move, _motor_pair_move_tank, _motor_pair_stop')
+  })
+
+  it('defines stop action constants interpolated from STOP_ACTION', () => {
+    const moduleSource = getMotorPairSource()
+    expect(moduleSource).toContain('COAST = ${STOP_ACTION.COAST}')
+    expect(moduleSource).toContain('BRAKE = ${STOP_ACTION.BRAKE}')
+    expect(moduleSource).toContain('HOLD = ${STOP_ACTION.HOLD}')
+    expect(moduleSource).toContain('CONTINUE = ${STOP_ACTION.CONTINUE}')
+    expect(moduleSource).toContain('SMART_COAST = ${STOP_ACTION.SMART_COAST}')
+    expect(moduleSource).toContain('SMART_BRAKE = ${STOP_ACTION.SMART_BRAKE}')
   })
 
   it('defines pair as synchronous function delegating to the JS bridge', () => {
@@ -220,6 +230,27 @@ describe('motor_pair module definition', () => {
     expect(moduleSource).not.toContain('async def unpair')
     expect(moduleSource).toContain('_motor_pair_unpair(pair)')
   })
+
+  it('defines move as synchronous function with keyword-only velocity/acceleration', () => {
+    const moduleSource = getMotorPairSource()
+    expect(moduleSource).toContain('def move(pair, steering, *, velocity=360, acceleration=1000):')
+    expect(moduleSource).not.toContain('async def move')
+    expect(moduleSource).toContain('_motor_pair_move(pair, steering, velocity)')
+  })
+
+  it('defines move_tank as synchronous function with keyword-only acceleration', () => {
+    const moduleSource = getMotorPairSource()
+    expect(moduleSource).toContain('def move_tank(pair, left_velocity, right_velocity, *, acceleration=1000):')
+    expect(moduleSource).not.toContain('async def move_tank')
+    expect(moduleSource).toContain('_motor_pair_move_tank(pair, left_velocity, right_velocity)')
+  })
+
+  it('defines stop as synchronous function with keyword-only stop=BRAKE', () => {
+    const moduleSource = getMotorPairSource()
+    expect(moduleSource).toContain('def stop(pair, *, stop=BRAKE):')
+    expect(moduleSource).not.toContain('async def stop')
+    expect(moduleSource).toContain('_motor_pair_stop(pair)')
+  })
 })
 
 describe('motor_pair module registration', () => {
@@ -227,6 +258,13 @@ describe('motor_pair module registration', () => {
     const source = getFullSource()
     expect(source).toContain('globalThis._motor_pair_pair = motorPairPair')
     expect(source).toContain('globalThis._motor_pair_unpair = motorPairUnpair')
+  })
+
+  it('wires move/move_tank/stop bridges onto globalThis', () => {
+    const source = getFullSource()
+    expect(source).toContain('globalThis._motor_pair_move = motorPairMove')
+    expect(source).toContain('globalThis._motor_pair_move_tank = motorPairMoveTank')
+    expect(source).toContain('globalThis._motor_pair_stop = motorPairStop')
   })
 
   it('registers motor_pair in sys.modules', () => {

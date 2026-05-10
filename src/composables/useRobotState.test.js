@@ -15,6 +15,9 @@ import {
   motorResetRelativePosition,
   motorPairPair,
   motorPairUnpair,
+  motorPairMove,
+  motorPairMoveTank,
+  motorPairStop,
   addLog,
   clearLogs,
   resetState,
@@ -732,5 +735,137 @@ describe('motorPairUnpair', () => {
     expect(() => motorPairUnpair(-1)).toThrow('Invalid pair: -1')
     expect(() => motorPairUnpair(3)).toThrow('Invalid pair: 3')
     expect(() => motorPairUnpair('PAIR_1')).toThrow('Invalid pair: PAIR_1')
+  })
+})
+
+describe('motorPairMove', () => {
+  beforeEach(() => {
+    motorPairPair(PAIRS.PAIR_1, PORTS.A, PORTS.B)
+  })
+
+  it('drives both motors at the same velocity when steering is 0', () => {
+    motorPairMove(PAIRS.PAIR_1, 0, 500)
+    expect(motorVelocity(PORTS.A)).toBe(500)
+    expect(motorVelocity(PORTS.B)).toBe(500)
+  })
+
+  it('slows the right motor on positive steering', () => {
+    motorPairMove(PAIRS.PAIR_1, 50, 500)
+    expect(motorVelocity(PORTS.A)).toBe(500)
+    expect(motorVelocity(PORTS.B)).toBe(0)
+  })
+
+  it('reverses the right motor for a full right pivot', () => {
+    motorPairMove(PAIRS.PAIR_1, 100, 500)
+    expect(motorVelocity(PORTS.A)).toBe(500)
+    expect(motorVelocity(PORTS.B)).toBe(-500)
+  })
+
+  it('slows the left motor on negative steering', () => {
+    motorPairMove(PAIRS.PAIR_1, -50, 500)
+    expect(motorVelocity(PORTS.A)).toBe(0)
+    expect(motorVelocity(PORTS.B)).toBe(500)
+  })
+
+  it('reverses the left motor for a full left pivot', () => {
+    motorPairMove(PAIRS.PAIR_1, -100, 500)
+    expect(motorVelocity(PORTS.A)).toBe(-500)
+    expect(motorVelocity(PORTS.B)).toBe(500)
+  })
+
+  it('clamps steering outside [-100, 100]', () => {
+    motorPairMove(PAIRS.PAIR_1, 250, 500)
+    expect(motorVelocity(PORTS.A)).toBe(500)
+    expect(motorVelocity(PORTS.B)).toBe(-500)
+  })
+
+  it('marks both motors as running', () => {
+    motorPairMove(PAIRS.PAIR_1, 0, 500)
+    const { state } = useRobotState()
+    expect(state.motors[PORTS.A].running).toBe(true)
+    expect(state.motors[PORTS.B].running).toBe(true)
+  })
+
+  it('logs a descriptive message', () => {
+    motorPairMove(PAIRS.PAIR_1, 0, 500)
+    const { state } = useRobotState()
+    const lastLog = state.logs[state.logs.length - 1]
+    expect(lastLog.message).toBe('PAIR_1 moving at steering=0, velocity=500 (L=500, R=500)')
+  })
+
+  it('throws when the slot is not paired', () => {
+    expect(() => motorPairMove(PAIRS.PAIR_2, 0, 500)).toThrow('PAIR_2 is not paired')
+  })
+
+  it('throws on invalid pair slot', () => {
+    expect(() => motorPairMove(-1, 0, 500)).toThrow('Invalid pair: -1')
+  })
+})
+
+describe('motorPairMoveTank', () => {
+  beforeEach(() => {
+    motorPairPair(PAIRS.PAIR_1, PORTS.A, PORTS.B)
+  })
+
+  it('sets the left and right motors to independent velocities', () => {
+    motorPairMoveTank(PAIRS.PAIR_1, 300, -200)
+    expect(motorVelocity(PORTS.A)).toBe(300)
+    expect(motorVelocity(PORTS.B)).toBe(-200)
+  })
+
+  it('marks motors as running when velocity is nonzero', () => {
+    motorPairMoveTank(PAIRS.PAIR_1, 300, -200)
+    const { state } = useRobotState()
+    expect(state.motors[PORTS.A].running).toBe(true)
+    expect(state.motors[PORTS.B].running).toBe(true)
+  })
+
+  it('marks a motor as not running when its velocity is zero', () => {
+    motorPairMoveTank(PAIRS.PAIR_1, 0, 200)
+    const { state } = useRobotState()
+    expect(state.motors[PORTS.A].running).toBe(false)
+    expect(state.motors[PORTS.B].running).toBe(true)
+  })
+
+  it('logs a descriptive message', () => {
+    motorPairMoveTank(PAIRS.PAIR_1, 300, -200)
+    const { state } = useRobotState()
+    const lastLog = state.logs[state.logs.length - 1]
+    expect(lastLog.message).toBe('PAIR_1 tank: L=300, R=-200')
+  })
+
+  it('throws when the slot is not paired', () => {
+    expect(() => motorPairMoveTank(PAIRS.PAIR_2, 100, 100)).toThrow('PAIR_2 is not paired')
+  })
+})
+
+describe('motorPairStop', () => {
+  beforeEach(() => {
+    motorPairPair(PAIRS.PAIR_1, PORTS.A, PORTS.B)
+    motorPairMove(PAIRS.PAIR_1, 0, 500)
+  })
+
+  it('zeroes both motor velocities', () => {
+    motorPairStop(PAIRS.PAIR_1)
+    expect(motorVelocity(PORTS.A)).toBe(0)
+    expect(motorVelocity(PORTS.B)).toBe(0)
+  })
+
+  it('marks both motors as not running', () => {
+    motorPairStop(PAIRS.PAIR_1)
+    const { state } = useRobotState()
+    expect(state.motors[PORTS.A].running).toBe(false)
+    expect(state.motors[PORTS.B].running).toBe(false)
+  })
+
+  it('logs a descriptive message', () => {
+    motorPairStop(PAIRS.PAIR_1)
+    const { state } = useRobotState()
+    const lastLog = state.logs[state.logs.length - 1]
+    expect(lastLog.message).toBe('PAIR_1 stopped')
+  })
+
+  it('throws when the slot is not paired', () => {
+    expect(() => motorPairStop(PAIRS.PAIR_2)).toThrow('PAIR_2 is not paired')
   })
 })
