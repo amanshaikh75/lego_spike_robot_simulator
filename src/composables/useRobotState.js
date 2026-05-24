@@ -383,6 +383,185 @@ export function motorPairStop(pair) {
   addLog(`${pairName(pair)} stopped`)
 }
 
+export function motorPairMoveForDegrees(pair, degrees, steering, velocity) {
+  const slot = assertPaired(pair)
+  const name = pairName(pair)
+  const direction = degrees >= 0 ? 1 : -1
+  const absDegrees = Math.abs(degrees)
+  const absVelocity = Math.abs(velocity)
+
+  if (absVelocity === 0) {
+    addLog(`${name} move for ${degrees} deg skipped: velocity is 0`)
+    return Promise.resolve()
+  }
+
+  const { left: leftVel, right: rightVel } = steeringToVelocities(steering, absVelocity)
+  const durationMs = (absDegrees / absVelocity) * 1000
+
+  applyPairVelocities(slot, leftVel * direction, rightVel * direction)
+  addLog(`${name} move for ${degrees} deg, steering=${steering}, velocity=${velocity}`)
+
+  return new Promise((resolve) => {
+    const leftStart = { rel: state.motors[slot.left].relativePosition, abs: state.motors[slot.left].absolutePosition }
+    const rightStart = { rel: state.motors[slot.right].relativePosition, abs: state.motors[slot.right].absolutePosition }
+    const startTime = performance.now()
+
+    const interval = setInterval(() => {
+      const elapsed = performance.now() - startTime
+      const progress = Math.min(elapsed / durationMs, 1)
+      const leftMoved = (leftVel / absVelocity) * absDegrees * progress * direction
+      const rightMoved = (rightVel / absVelocity) * absDegrees * progress * direction
+
+      state.motors[slot.left].relativePosition = leftStart.rel + leftMoved
+      state.motors[slot.left].absolutePosition = ((leftStart.abs + leftMoved) % 360 + 360) % 360
+      state.motors[slot.right].relativePosition = rightStart.rel + rightMoved
+      state.motors[slot.right].absolutePosition = ((rightStart.abs + rightMoved) % 360 + 360) % 360
+
+      if (progress >= 1) {
+        clearInterval(interval)
+        applyPairVelocities(slot, 0, 0)
+        addLog(`${name} completed ${degrees} deg move`)
+        resolve()
+      }
+    }, 50)
+  })
+}
+
+export function motorPairMoveForTime(pair, duration, steering, velocity) {
+  const slot = assertPaired(pair)
+  const name = pairName(pair)
+  const { left: leftVel, right: rightVel } = steeringToVelocities(steering, velocity)
+
+  applyPairVelocities(slot, leftVel, rightVel)
+  addLog(`${name} move for ${duration}ms, steering=${steering}, velocity=${velocity}`)
+
+  return new Promise((resolve) => {
+    const leftStart = { rel: state.motors[slot.left].relativePosition, abs: state.motors[slot.left].absolutePosition }
+    const rightStart = { rel: state.motors[slot.right].relativePosition, abs: state.motors[slot.right].absolutePosition }
+    const startTime = performance.now()
+
+    const interval = setInterval(() => {
+      const elapsed = performance.now() - startTime
+      const progress = Math.min(elapsed / duration, 1)
+
+      if (progress >= 1) {
+        const leftTotal = leftVel * (duration / 1000)
+        const rightTotal = rightVel * (duration / 1000)
+        state.motors[slot.left].relativePosition = leftStart.rel + leftTotal
+        state.motors[slot.left].absolutePosition = ((leftStart.abs + leftTotal) % 360 + 360) % 360
+        state.motors[slot.right].relativePosition = rightStart.rel + rightTotal
+        state.motors[slot.right].absolutePosition = ((rightStart.abs + rightTotal) % 360 + 360) % 360
+        clearInterval(interval)
+        applyPairVelocities(slot, 0, 0)
+        addLog(`${name} completed ${duration}ms move`)
+        resolve()
+      } else {
+        const leftMoved = leftVel * (elapsed / 1000)
+        const rightMoved = rightVel * (elapsed / 1000)
+        state.motors[slot.left].relativePosition = leftStart.rel + leftMoved
+        state.motors[slot.left].absolutePosition = ((leftStart.abs + leftMoved) % 360 + 360) % 360
+        state.motors[slot.right].relativePosition = rightStart.rel + rightMoved
+        state.motors[slot.right].absolutePosition = ((rightStart.abs + rightMoved) % 360 + 360) % 360
+      }
+    }, 50)
+  })
+}
+
+export function motorPairMoveTankForDegrees(pair, degrees, leftVelocity, rightVelocity) {
+  const slot = assertPaired(pair)
+  const name = pairName(pair)
+  const absDegrees = Math.abs(degrees)
+  const absLeftVel = Math.abs(leftVelocity)
+  const absRightVel = Math.abs(rightVelocity)
+  const leftDir = leftVelocity >= 0 ? 1 : -1
+  const rightDir = rightVelocity >= 0 ? 1 : -1
+  const leftDuration = absLeftVel > 0 ? (absDegrees / absLeftVel) * 1000 : 0
+  const rightDuration = absRightVel > 0 ? (absDegrees / absRightVel) * 1000 : 0
+  const totalDuration = Math.max(leftDuration, rightDuration)
+
+  if (totalDuration === 0) {
+    addLog(`${name} tank for ${degrees} deg skipped: both velocities are 0`)
+    return Promise.resolve()
+  }
+
+  applyPairVelocities(slot, leftVelocity, rightVelocity)
+  addLog(`${name} tank for ${degrees} deg: L=${leftVelocity}, R=${rightVelocity}`)
+
+  return new Promise((resolve) => {
+    const leftStart = { rel: state.motors[slot.left].relativePosition, abs: state.motors[slot.left].absolutePosition }
+    const rightStart = { rel: state.motors[slot.right].relativePosition, abs: state.motors[slot.right].absolutePosition }
+    const startTime = performance.now()
+
+    const interval = setInterval(() => {
+      const elapsed = performance.now() - startTime
+      const leftMoved = absLeftVel > 0 ? absDegrees * Math.min(elapsed / leftDuration, 1) * leftDir : 0
+      const rightMoved = absRightVel > 0 ? absDegrees * Math.min(elapsed / rightDuration, 1) * rightDir : 0
+
+      state.motors[slot.left].relativePosition = leftStart.rel + leftMoved
+      state.motors[slot.left].absolutePosition = ((leftStart.abs + leftMoved) % 360 + 360) % 360
+      state.motors[slot.right].relativePosition = rightStart.rel + rightMoved
+      state.motors[slot.right].absolutePosition = ((rightStart.abs + rightMoved) % 360 + 360) % 360
+
+      if (elapsed >= totalDuration) {
+        clearInterval(interval)
+        // Snap each motor to its exact final position
+        if (absLeftVel > 0) {
+          const leftFinal = absDegrees * leftDir
+          state.motors[slot.left].relativePosition = leftStart.rel + leftFinal
+          state.motors[slot.left].absolutePosition = ((leftStart.abs + leftFinal) % 360 + 360) % 360
+        }
+        if (absRightVel > 0) {
+          const rightFinal = absDegrees * rightDir
+          state.motors[slot.right].relativePosition = rightStart.rel + rightFinal
+          state.motors[slot.right].absolutePosition = ((rightStart.abs + rightFinal) % 360 + 360) % 360
+        }
+        applyPairVelocities(slot, 0, 0)
+        addLog(`${name} tank completed ${degrees} deg`)
+        resolve()
+      }
+    }, 50)
+  })
+}
+
+export function motorPairMoveTankForTime(pair, duration, leftVelocity, rightVelocity) {
+  const slot = assertPaired(pair)
+  const name = pairName(pair)
+
+  applyPairVelocities(slot, leftVelocity, rightVelocity)
+  addLog(`${name} tank for ${duration}ms: L=${leftVelocity}, R=${rightVelocity}`)
+
+  return new Promise((resolve) => {
+    const leftStart = { rel: state.motors[slot.left].relativePosition, abs: state.motors[slot.left].absolutePosition }
+    const rightStart = { rel: state.motors[slot.right].relativePosition, abs: state.motors[slot.right].absolutePosition }
+    const startTime = performance.now()
+
+    const interval = setInterval(() => {
+      const elapsed = performance.now() - startTime
+      const progress = Math.min(elapsed / duration, 1)
+
+      if (progress >= 1) {
+        const leftTotal = leftVelocity * (duration / 1000)
+        const rightTotal = rightVelocity * (duration / 1000)
+        state.motors[slot.left].relativePosition = leftStart.rel + leftTotal
+        state.motors[slot.left].absolutePosition = ((leftStart.abs + leftTotal) % 360 + 360) % 360
+        state.motors[slot.right].relativePosition = rightStart.rel + rightTotal
+        state.motors[slot.right].absolutePosition = ((rightStart.abs + rightTotal) % 360 + 360) % 360
+        clearInterval(interval)
+        applyPairVelocities(slot, 0, 0)
+        addLog(`${name} tank completed ${duration}ms`)
+        resolve()
+      } else {
+        const leftMoved = leftVelocity * (elapsed / 1000)
+        const rightMoved = rightVelocity * (elapsed / 1000)
+        state.motors[slot.left].relativePosition = leftStart.rel + leftMoved
+        state.motors[slot.left].absolutePosition = ((leftStart.abs + leftMoved) % 360 + 360) % 360
+        state.motors[slot.right].relativePosition = rightStart.rel + rightMoved
+        state.motors[slot.right].absolutePosition = ((rightStart.abs + rightMoved) % 360 + 360) % 360
+      }
+    }, 50)
+  })
+}
+
 // Logging functions
 export function addLog(message) {
   const timestamp = new Date().toLocaleTimeString()
@@ -427,6 +606,10 @@ export function useRobotState() {
     motorPairMove,
     motorPairMoveTank,
     motorPairStop,
+    motorPairMoveForDegrees,
+    motorPairMoveForTime,
+    motorPairMoveTankForDegrees,
+    motorPairMoveTankForTime,
     addLog,
     clearLogs,
     resetState

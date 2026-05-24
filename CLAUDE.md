@@ -35,9 +35,9 @@ Web-based simulator for LEGO Spike Prime robots. Tests Python code before deploy
 - Task 3 (extended `motor` commands): COMPLETE — `run_for_degrees`, `run_for_time`, `run_to_absolute_position`, `run_to_relative_position` and `reset_relative_position` all done
 - Task 4 (motor constants): COMPLETE — direction constants (CLOCKWISE, COUNTERCLOCKWISE, SHORTEST_PATH, LONGEST_PATH) plus stop actions (BRAKE, COAST, HOLD, CONTINUE, SMART_COAST, SMART_BRAKE). BRAKE is now the default `stop=` value across all motor commands.
 
-#### Milestone 1.3: Motor Pair & Drivebase — IN PROGRESS
+#### Milestone 1.3: Motor Pair & Drivebase — COMPLETE
 - Task 1 (`motor_pair` stub + constants + `pair`/`unpair`): COMPLETE — `PAIR_1`, `PAIR_2`, `PAIR_3` constants added; `pair()`/`unpair()` bookkeeping in robot state (validates ports/slot, prevents pairing a motor with itself or across slots)
 - Task 2 (synchronous `move`, `move_tank`, `stop`): COMPLETE — `motor_pair.move(pair, steering, *, velocity=360, acceleration=1000)` applies SPIKE steering math (±50 stops the inside wheel, ±100 pivots); `motor_pair.move_tank(pair, left_velocity, right_velocity, *, acceleration=1000)` drives the wheels independently; `motor_pair.stop(pair, *, stop=BRAKE)` zeroes both motors. All three throw if the slot is not paired. Stop-action constants (COAST/BRAKE/HOLD/CONTINUE/SMART_COAST/SMART_BRAKE) are mirrored into the `motor_pair` module so the `stop=` default resolves without a `motor` import.
-- Task 3 (awaitable `move_for_degrees`/`move_for_time`, `move_tank_for_degrees`/`move_tank_for_time`): NOT STARTED
+- Task 3 (awaitable `move_for_degrees`/`move_for_time`, `move_tank_for_degrees`/`move_tank_for_time`): COMPLETE — all four implemented with real-time position tracking at 50ms ticks; degrees-based variants track each wheel independently; both stop and snap to exact final positions on completion
 #### Milestone 1.4: IMU / Motion Sensor — NOT STARTED
 #### Milestone 1.5: Dashboard & Polish — NOT STARTED
