@@ -1,6 +1,6 @@
 import { ref, shallowRef } from 'vue'
 import { loadPyodide } from 'pyodide'
-import { motorRun, motorStop, motorRunForDegrees, motorRunForTime, motorRunToAbsolutePosition, motorRunToRelativePosition, motorResetRelativePosition, motorVelocity, motorAbsolutePosition, motorRelativePosition, motorPairPair, motorPairUnpair, motorPairMove, motorPairMoveTank, motorPairStop, addLog, PORTS, DIRECTION, STOP_ACTION, PAIRS } from './useRobotState'
+import { motorRun, motorStop, motorRunForDegrees, motorRunForTime, motorRunToAbsolutePosition, motorRunToRelativePosition, motorResetRelativePosition, motorVelocity, motorAbsolutePosition, motorRelativePosition, motorPairPair, motorPairUnpair, motorPairMove, motorPairMoveTank, motorPairStop, motorPairMoveForDegrees, motorPairMoveForTime, motorPairMoveTankForDegrees, motorPairMoveTankForTime, addLog, PORTS, DIRECTION, STOP_ACTION, PAIRS } from './useRobotState'
 
 const pyodide = shallowRef(null)
 const isLoading = ref(true)
@@ -115,7 +115,7 @@ async def run_to_relative_position(port, position, velocity, *, stop=BRAKE, acce
 
 // Python code for the motor_pair module
 const motorPairModule = `
-from js import _motor_pair_pair, _motor_pair_unpair, _motor_pair_move, _motor_pair_move_tank, _motor_pair_stop
+from js import _motor_pair_pair, _motor_pair_unpair, _motor_pair_move, _motor_pair_move_tank, _motor_pair_stop, _motor_pair_move_for_degrees, _motor_pair_move_for_time, _motor_pair_move_tank_for_degrees, _motor_pair_move_tank_for_time
 
 # Pair slot constants
 PAIR_1 = ${PAIRS.PAIR_1}
@@ -149,6 +149,22 @@ def move_tank(pair, left_velocity, right_velocity, *, acceleration=1000):
 def stop(pair, *, stop=BRAKE):
     """Stop the paired motors."""
     _motor_pair_stop(pair)
+
+async def move_for_degrees(pair, degrees, steering, *, velocity=360, stop=BRAKE, acceleration=1000, deceleration=1000):
+    """Move the pair for the given degrees (faster wheel), with steering."""
+    await _motor_pair_move_for_degrees(pair, degrees, steering, velocity)
+
+async def move_for_time(pair, duration, steering, *, velocity=360, stop=BRAKE, acceleration=1000, deceleration=1000):
+    """Move the pair for the given duration (ms), with steering."""
+    await _motor_pair_move_for_time(pair, duration, steering, velocity)
+
+async def move_tank_for_degrees(pair, degrees, left_velocity, right_velocity, *, stop=BRAKE, acceleration=1000, deceleration=1000):
+    """Move each wheel independently for the given number of degrees."""
+    await _motor_pair_move_tank_for_degrees(pair, degrees, left_velocity, right_velocity)
+
+async def move_tank_for_time(pair, duration, left_velocity, right_velocity, *, stop=BRAKE, acceleration=1000, deceleration=1000):
+    """Move each wheel independently for the given duration (ms)."""
+    await _motor_pair_move_tank_for_time(pair, duration, left_velocity, right_velocity)
 `
 
 async function initPyodide() {
@@ -177,6 +193,10 @@ async function initPyodide() {
     globalThis._motor_pair_move = motorPairMove
     globalThis._motor_pair_move_tank = motorPairMoveTank
     globalThis._motor_pair_stop = motorPairStop
+    globalThis._motor_pair_move_for_degrees = motorPairMoveForDegrees
+    globalThis._motor_pair_move_for_time = motorPairMoveForTime
+    globalThis._motor_pair_move_tank_for_degrees = motorPairMoveTankForDegrees
+    globalThis._motor_pair_move_tank_for_time = motorPairMoveTankForTime
     globalThis._add_log = addLog
 
     // Create the hub package with port module
