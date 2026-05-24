@@ -234,14 +234,14 @@ describe('motor_pair module definition', () => {
   it('defines move as synchronous function with keyword-only velocity/acceleration', () => {
     const moduleSource = getMotorPairSource()
     expect(moduleSource).toContain('def move(pair, steering, *, velocity=360, acceleration=1000):')
-    expect(moduleSource).not.toContain('async def move')
+    expect(moduleSource).not.toMatch(/async def move\(/)
     expect(moduleSource).toContain('_motor_pair_move(pair, steering, velocity)')
   })
 
   it('defines move_tank as synchronous function with keyword-only acceleration', () => {
     const moduleSource = getMotorPairSource()
     expect(moduleSource).toContain('def move_tank(pair, left_velocity, right_velocity, *, acceleration=1000):')
-    expect(moduleSource).not.toContain('async def move_tank')
+    expect(moduleSource).not.toMatch(/async def move_tank\(/)
     expect(moduleSource).toContain('_motor_pair_move_tank(pair, left_velocity, right_velocity)')
   })
 
@@ -250,6 +250,38 @@ describe('motor_pair module definition', () => {
     expect(moduleSource).toContain('def stop(pair, *, stop=BRAKE):')
     expect(moduleSource).not.toContain('async def stop')
     expect(moduleSource).toContain('_motor_pair_stop(pair)')
+  })
+
+  it('defines move_for_degrees as async with steering/velocity/stop kwargs', () => {
+    const moduleSource = getMotorPairSource()
+    expect(moduleSource).toContain('async def move_for_degrees(pair, degrees, steering, *, velocity=360, stop=BRAKE, acceleration=1000, deceleration=1000):')
+    expect(moduleSource).toContain('await _motor_pair_move_for_degrees(pair, degrees, steering, velocity)')
+  })
+
+  it('defines move_for_time as async with steering/velocity/stop kwargs', () => {
+    const moduleSource = getMotorPairSource()
+    expect(moduleSource).toContain('async def move_for_time(pair, duration, steering, *, velocity=360, stop=BRAKE, acceleration=1000, deceleration=1000):')
+    expect(moduleSource).toContain('await _motor_pair_move_for_time(pair, duration, steering, velocity)')
+  })
+
+  it('defines move_tank_for_degrees as async with independent velocities', () => {
+    const moduleSource = getMotorPairSource()
+    expect(moduleSource).toContain('async def move_tank_for_degrees(pair, degrees, left_velocity, right_velocity, *, stop=BRAKE, acceleration=1000, deceleration=1000):')
+    expect(moduleSource).toContain('await _motor_pair_move_tank_for_degrees(pair, degrees, left_velocity, right_velocity)')
+  })
+
+  it('defines move_tank_for_time as async with independent velocities', () => {
+    const moduleSource = getMotorPairSource()
+    expect(moduleSource).toContain('async def move_tank_for_time(pair, duration, left_velocity, right_velocity, *, stop=BRAKE, acceleration=1000, deceleration=1000):')
+    expect(moduleSource).toContain('await _motor_pair_move_tank_for_time(pair, duration, left_velocity, right_velocity)')
+  })
+
+  it('imports the four awaitable motor_pair bridges from js', () => {
+    const moduleSource = getMotorPairSource()
+    expect(moduleSource).toContain('_motor_pair_move_for_degrees')
+    expect(moduleSource).toContain('_motor_pair_move_for_time')
+    expect(moduleSource).toContain('_motor_pair_move_tank_for_degrees')
+    expect(moduleSource).toContain('_motor_pair_move_tank_for_time')
   })
 })
 
@@ -265,6 +297,14 @@ describe('motor_pair module registration', () => {
     expect(source).toContain('globalThis._motor_pair_move = motorPairMove')
     expect(source).toContain('globalThis._motor_pair_move_tank = motorPairMoveTank')
     expect(source).toContain('globalThis._motor_pair_stop = motorPairStop')
+  })
+
+  it('wires the four awaitable move bridges onto globalThis', () => {
+    const source = getFullSource()
+    expect(source).toContain('globalThis._motor_pair_move_for_degrees = motorPairMoveForDegrees')
+    expect(source).toContain('globalThis._motor_pair_move_for_time = motorPairMoveForTime')
+    expect(source).toContain('globalThis._motor_pair_move_tank_for_degrees = motorPairMoveTankForDegrees')
+    expect(source).toContain('globalThis._motor_pair_move_tank_for_time = motorPairMoveTankForTime')
   })
 
   it('registers motor_pair in sys.modules', () => {
