@@ -18,6 +18,10 @@ import {
   motorPairMove,
   motorPairMoveTank,
   motorPairStop,
+  motorPairMoveForDegrees,
+  motorPairMoveForTime,
+  motorPairMoveTankForDegrees,
+  motorPairMoveTankForTime,
   addLog,
   clearLogs,
   resetState,
@@ -867,5 +871,288 @@ describe('motorPairStop', () => {
 
   it('throws when the slot is not paired', () => {
     expect(() => motorPairStop(PAIRS.PAIR_2)).toThrow('PAIR_2 is not paired')
+  })
+})
+
+describe('motorPairMoveForDegrees', () => {
+  beforeEach(() => {
+    motorPairPair(PAIRS.PAIR_1, PORTS.A, PORTS.B)
+  })
+
+  it('moves both wheels equally on straight (steering=0)', async () => {
+    // 360 deg/sec for 360 deg = 1000ms; both wheels travel 360
+    await motorPairMoveForDegrees(PAIRS.PAIR_1, 360, 0, 360)
+
+    expect(motorRelativePosition(PORTS.A)).toBeCloseTo(360, 0)
+    expect(motorRelativePosition(PORTS.B)).toBeCloseTo(360, 0)
+  })
+
+  it('moves the inner wheel proportionally less on positive steering', async () => {
+    // steering=50 stops the right wheel; left (reference) travels 360
+    await motorPairMoveForDegrees(PAIRS.PAIR_1, 360, 50, 360)
+
+    expect(motorRelativePosition(PORTS.A)).toBeCloseTo(360, 0)
+    expect(motorRelativePosition(PORTS.B)).toBeCloseTo(0, 0)
+  })
+
+  it('pivots in place on full positive steering', async () => {
+    // steering=100 → right wheel reverses at same speed; both travel 360 in opposite directions
+    await motorPairMoveForDegrees(PAIRS.PAIR_1, 360, 100, 360)
+
+    expect(motorRelativePosition(PORTS.A)).toBeCloseTo(360, 0)
+    expect(motorRelativePosition(PORTS.B)).toBeCloseTo(-360, 0)
+  })
+
+  it('reverses both wheels when degrees is negative', async () => {
+    await motorPairMoveForDegrees(PAIRS.PAIR_1, -360, 0, 360)
+
+    expect(motorRelativePosition(PORTS.A)).toBeCloseTo(-360, 0)
+    expect(motorRelativePosition(PORTS.B)).toBeCloseTo(-360, 0)
+  })
+
+  it('zeros both velocities on completion', async () => {
+    await motorPairMoveForDegrees(PAIRS.PAIR_1, 180, 0, 360)
+
+    expect(motorVelocity(PORTS.A)).toBe(0)
+    expect(motorVelocity(PORTS.B)).toBe(0)
+    const { state } = useRobotState()
+    expect(state.motors[PORTS.A].running).toBe(false)
+    expect(state.motors[PORTS.B].running).toBe(false)
+  })
+
+  it('sets running state and steering-derived velocities during execution', async () => {
+    const promise = motorPairMoveForDegrees(PAIRS.PAIR_1, 360, 50, 360)
+
+    const { state } = useRobotState()
+    expect(state.motors[PORTS.A].velocity).toBe(360)
+    expect(state.motors[PORTS.B].velocity).toBe(0)
+    expect(state.motors[PORTS.A].running).toBe(true)
+
+    await promise
+  })
+
+  it('updates absolute position with wrapping', async () => {
+    // 540 degrees → absolute should wrap to 180
+    await motorPairMoveForDegrees(PAIRS.PAIR_1, 540, 0, 360)
+
+    expect(motorAbsolutePosition(PORTS.A)).toBeCloseTo(180, 0)
+    expect(motorAbsolutePosition(PORTS.B)).toBeCloseTo(180, 0)
+  })
+
+  it('resolves immediately when velocity is 0', async () => {
+    await motorPairMoveForDegrees(PAIRS.PAIR_1, 360, 0, 0)
+
+    expect(motorRelativePosition(PORTS.A)).toBe(0)
+    expect(motorRelativePosition(PORTS.B)).toBe(0)
+    const { state } = useRobotState()
+    const messages = state.logs.map(l => l.message)
+    expect(messages).toContain('PAIR_1 move for 360 deg skipped: velocity is 0')
+  })
+
+  it('logs start and completion messages', async () => {
+    await motorPairMoveForDegrees(PAIRS.PAIR_1, 180, 0, 360)
+
+    const { state } = useRobotState()
+    const messages = state.logs.map(l => l.message)
+    expect(messages).toContain('PAIR_1 move for 180 deg, steering=0, velocity=360')
+    expect(messages).toContain('PAIR_1 completed 180 deg move')
+  })
+
+  it('throws when the slot is not paired', () => {
+    expect(() => motorPairMoveForDegrees(PAIRS.PAIR_2, 360, 0, 360)).toThrow('PAIR_2 is not paired')
+  })
+
+  it('throws on invalid pair slot', () => {
+    expect(() => motorPairMoveForDegrees(-1, 360, 0, 360)).toThrow('Invalid pair: -1')
+  })
+})
+
+describe('motorPairMoveForTime', () => {
+  beforeEach(() => {
+    motorPairPair(PAIRS.PAIR_1, PORTS.A, PORTS.B)
+  })
+
+  it('moves both wheels equally on straight (steering=0)', async () => {
+    // 360 deg/sec for 500ms = 180 degrees per wheel
+    await motorPairMoveForTime(PAIRS.PAIR_1, 500, 0, 360)
+
+    expect(motorRelativePosition(PORTS.A)).toBeCloseTo(180, 0)
+    expect(motorRelativePosition(PORTS.B)).toBeCloseTo(180, 0)
+  })
+
+  it('stops the inside wheel on positive steering=50', async () => {
+    await motorPairMoveForTime(PAIRS.PAIR_1, 500, 50, 360)
+
+    expect(motorRelativePosition(PORTS.A)).toBeCloseTo(180, 0)
+    expect(motorRelativePosition(PORTS.B)).toBeCloseTo(0, 0)
+  })
+
+  it('reverses both wheels for negative velocity', async () => {
+    await motorPairMoveForTime(PAIRS.PAIR_1, 500, 0, -360)
+
+    expect(motorRelativePosition(PORTS.A)).toBeCloseTo(-180, 0)
+    expect(motorRelativePosition(PORTS.B)).toBeCloseTo(-180, 0)
+  })
+
+  it('zeros both velocities on completion', async () => {
+    await motorPairMoveForTime(PAIRS.PAIR_1, 200, 0, 360)
+
+    expect(motorVelocity(PORTS.A)).toBe(0)
+    expect(motorVelocity(PORTS.B)).toBe(0)
+    const { state } = useRobotState()
+    expect(state.motors[PORTS.A].running).toBe(false)
+    expect(state.motors[PORTS.B].running).toBe(false)
+  })
+
+  it('sets running state and steering-derived velocities during execution', async () => {
+    const promise = motorPairMoveForTime(PAIRS.PAIR_1, 200, 0, 360)
+
+    const { state } = useRobotState()
+    expect(state.motors[PORTS.A].velocity).toBe(360)
+    expect(state.motors[PORTS.B].velocity).toBe(360)
+    expect(state.motors[PORTS.A].running).toBe(true)
+
+    await promise
+  })
+
+  it('logs start and completion messages', async () => {
+    await motorPairMoveForTime(PAIRS.PAIR_1, 200, 0, 360)
+
+    const { state } = useRobotState()
+    const messages = state.logs.map(l => l.message)
+    expect(messages).toContain('PAIR_1 move for 200ms, steering=0, velocity=360')
+    expect(messages).toContain('PAIR_1 completed 200ms move')
+  })
+
+  it('throws when the slot is not paired', () => {
+    expect(() => motorPairMoveForTime(PAIRS.PAIR_2, 200, 0, 360)).toThrow('PAIR_2 is not paired')
+  })
+})
+
+describe('motorPairMoveTankForDegrees', () => {
+  beforeEach(() => {
+    motorPairPair(PAIRS.PAIR_1, PORTS.A, PORTS.B)
+  })
+
+  it('moves each wheel the requested degrees at its own velocity', async () => {
+    // Both wheels turn 360 degrees, but at different speeds
+    await motorPairMoveTankForDegrees(PAIRS.PAIR_1, 360, 360, 180)
+
+    expect(motorRelativePosition(PORTS.A)).toBeCloseTo(360, 0)
+    expect(motorRelativePosition(PORTS.B)).toBeCloseTo(360, 0)
+  })
+
+  it('waits for the slower wheel before resolving', async () => {
+    // Slower wheel takes 2s; faster takes 1s. After resolve, both should be at target.
+    await motorPairMoveTankForDegrees(PAIRS.PAIR_1, 360, 720, 360)
+
+    expect(motorRelativePosition(PORTS.A)).toBeCloseTo(360, 0)
+    expect(motorRelativePosition(PORTS.B)).toBeCloseTo(360, 0)
+  })
+
+  it('reverses individual wheels based on velocity sign (pivot)', async () => {
+    await motorPairMoveTankForDegrees(PAIRS.PAIR_1, 180, 360, -360)
+
+    expect(motorRelativePosition(PORTS.A)).toBeCloseTo(180, 0)
+    expect(motorRelativePosition(PORTS.B)).toBeCloseTo(-180, 0)
+  })
+
+  it('does not move a wheel whose velocity is 0', async () => {
+    await motorPairMoveTankForDegrees(PAIRS.PAIR_1, 180, 360, 0)
+
+    expect(motorRelativePosition(PORTS.A)).toBeCloseTo(180, 0)
+    expect(motorRelativePosition(PORTS.B)).toBe(0)
+  })
+
+  it('zeros both velocities on completion', async () => {
+    await motorPairMoveTankForDegrees(PAIRS.PAIR_1, 180, 360, 360)
+
+    expect(motorVelocity(PORTS.A)).toBe(0)
+    expect(motorVelocity(PORTS.B)).toBe(0)
+  })
+
+  it('treats degrees magnitude (negative degrees still moves per velocity sign)', async () => {
+    await motorPairMoveTankForDegrees(PAIRS.PAIR_1, -180, 360, 360)
+
+    // degrees is magnitude; signed direction comes from velocity
+    expect(Math.abs(motorRelativePosition(PORTS.A))).toBeCloseTo(180, 0)
+    expect(Math.abs(motorRelativePosition(PORTS.B))).toBeCloseTo(180, 0)
+  })
+
+  it('resolves immediately when both velocities are 0', async () => {
+    await motorPairMoveTankForDegrees(PAIRS.PAIR_1, 360, 0, 0)
+
+    expect(motorRelativePosition(PORTS.A)).toBe(0)
+    expect(motorRelativePosition(PORTS.B)).toBe(0)
+    const { state } = useRobotState()
+    const messages = state.logs.map(l => l.message)
+    expect(messages).toContain('PAIR_1 tank for 360 deg skipped: both velocities are 0')
+  })
+
+  it('logs start and completion messages', async () => {
+    await motorPairMoveTankForDegrees(PAIRS.PAIR_1, 180, 360, 360)
+
+    const { state } = useRobotState()
+    const messages = state.logs.map(l => l.message)
+    expect(messages).toContain('PAIR_1 tank for 180 deg: L=360, R=360')
+    expect(messages).toContain('PAIR_1 tank completed 180 deg')
+  })
+
+  it('throws when the slot is not paired', () => {
+    expect(() => motorPairMoveTankForDegrees(PAIRS.PAIR_2, 180, 360, 360)).toThrow('PAIR_2 is not paired')
+  })
+})
+
+describe('motorPairMoveTankForTime', () => {
+  beforeEach(() => {
+    motorPairPair(PAIRS.PAIR_1, PORTS.A, PORTS.B)
+  })
+
+  it('runs each wheel at its own velocity for the duration', async () => {
+    // 500ms: left moves 360*0.5=180, right moves 180*0.5=90
+    await motorPairMoveTankForTime(PAIRS.PAIR_1, 500, 360, 180)
+
+    expect(motorRelativePosition(PORTS.A)).toBeCloseTo(180, 0)
+    expect(motorRelativePosition(PORTS.B)).toBeCloseTo(90, 0)
+  })
+
+  it('handles negative velocities independently', async () => {
+    await motorPairMoveTankForTime(PAIRS.PAIR_1, 500, 360, -360)
+
+    expect(motorRelativePosition(PORTS.A)).toBeCloseTo(180, 0)
+    expect(motorRelativePosition(PORTS.B)).toBeCloseTo(-180, 0)
+  })
+
+  it('zeros both velocities on completion', async () => {
+    await motorPairMoveTankForTime(PAIRS.PAIR_1, 200, 360, 360)
+
+    expect(motorVelocity(PORTS.A)).toBe(0)
+    expect(motorVelocity(PORTS.B)).toBe(0)
+    const { state } = useRobotState()
+    expect(state.motors[PORTS.A].running).toBe(false)
+    expect(state.motors[PORTS.B].running).toBe(false)
+  })
+
+  it('sets the requested velocities during execution', async () => {
+    const promise = motorPairMoveTankForTime(PAIRS.PAIR_1, 200, 300, -200)
+
+    const { state } = useRobotState()
+    expect(state.motors[PORTS.A].velocity).toBe(300)
+    expect(state.motors[PORTS.B].velocity).toBe(-200)
+
+    await promise
+  })
+
+  it('logs start and completion messages', async () => {
+    await motorPairMoveTankForTime(PAIRS.PAIR_1, 200, 360, -360)
+
+    const { state } = useRobotState()
+    const messages = state.logs.map(l => l.message)
+    expect(messages).toContain('PAIR_1 tank for 200ms: L=360, R=-360')
+    expect(messages).toContain('PAIR_1 tank completed 200ms')
+  })
+
+  it('throws when the slot is not paired', () => {
+    expect(() => motorPairMoveTankForTime(PAIRS.PAIR_2, 200, 360, 360)).toThrow('PAIR_2 is not paired')
   })
 })
