@@ -4,6 +4,7 @@ import {
   DIRECTION,
   STOP_ACTION,
   PAIRS,
+  FACES,
   motorRun,
   motorStop,
   motorVelocity,
@@ -22,6 +23,14 @@ import {
   motorPairMoveForTime,
   motorPairMoveTankForDegrees,
   motorPairMoveTankForTime,
+  setRobotConfig,
+  motionTiltAngles,
+  motionResetYaw,
+  motionAcceleration,
+  motionAngularVelocity,
+  motionQuaternion,
+  motionUpFace,
+  motionStable,
   addLog,
   clearLogs,
   resetState,
@@ -1154,5 +1163,164 @@ describe('motorPairMoveTankForTime', () => {
 
   it('throws when the slot is not paired', () => {
     expect(() => motorPairMoveTankForTime(PAIRS.PAIR_2, 200, 360, 360)).toThrow('PAIR_2 is not paired')
+  })
+})
+
+describe('FACES', () => {
+  it('defines the six face constants 0 through 5', () => {
+    expect(FACES.TOP).toBe(0)
+    expect(FACES.FRONT).toBe(1)
+    expect(FACES.RIGHT).toBe(2)
+    expect(FACES.BOTTOM).toBe(3)
+    expect(FACES.BACK).toBe(4)
+    expect(FACES.LEFT).toBe(5)
+  })
+
+  it('is exported from the useRobotState composable', () => {
+    const { FACES: fromComposable } = useRobotState()
+    expect(fromComposable).toBe(FACES)
+  })
+})
+
+describe('setRobotConfig', () => {
+  it('updates geometry and logs a message', () => {
+    setRobotConfig({ wheelDiameterMm: 88, axleTrackMm: 150 })
+
+    const { state } = useRobotState()
+    expect(state.config.wheelDiameterMm).toBe(88)
+    expect(state.config.axleTrackMm).toBe(150)
+    expect(state.logs[state.logs.length - 1].message).toContain('wheelDiameter=88mm')
+  })
+
+  it('rejects non-positive wheel diameter', () => {
+    expect(() => setRobotConfig({ wheelDiameterMm: 0 })).toThrow('Invalid wheelDiameterMm: 0')
+  })
+
+  it('rejects non-positive axle track', () => {
+    expect(() => setRobotConfig({ axleTrackMm: -5 })).toThrow('Invalid axleTrackMm: -5')
+  })
+
+  it('rejects an invalid drivebase slot', () => {
+    expect(() => setRobotConfig({ drivebaseSlot: 9 })).toThrow('Invalid pair: 9')
+  })
+
+  it('rejects a non-object argument', () => {
+    expect(() => setRobotConfig(null)).toThrow('Robot config must be an object')
+  })
+
+  it('is reset to defaults by resetState', () => {
+    setRobotConfig({ wheelDiameterMm: 88 })
+    resetState()
+
+    const { state } = useRobotState()
+    expect(state.config.wheelDiameterMm).toBe(56)
+    expect(state.config.axleTrackMm).toBe(112)
+  })
+})
+
+describe('yaw tracking from drivebase movement', () => {
+  beforeEach(() => {
+    motorPairPair(PAIRS.PAIR_1, PORTS.A, PORTS.B)
+  })
+
+  it('stays at zero when driving straight', async () => {
+    await motorPairMoveForDegrees(PAIRS.PAIR_1, 360, 0, 360)
+    expect(motionTiltAngles()[0]).toBe(0)
+  })
+
+  it('turns clockwise (positive) when the left wheel leads', async () => {
+    // Single-wheel turn: left +360, right 0 → +90 degrees (900 decidegrees)
+    await motorPairMoveTankForDegrees(PAIRS.PAIR_1, 360, 360, 0)
+    expect(motionTiltAngles()[0]).toBeCloseTo(900, -1)
+  })
+
+  it('pivots to ~180 degrees on a full in-place spin', async () => {
+    // steering=100 → left +360, right -360 → 180 degrees (1800 decidegrees)
+    await motorPairMoveForDegrees(PAIRS.PAIR_1, 360, 100, 360)
+    expect(motionTiltAngles()[0]).toBeCloseTo(1800, -1)
+  })
+
+  it('accumulates continuously across multiple moves', async () => {
+    await motorPairMoveTankForDegrees(PAIRS.PAIR_1, 360, 360, 0) // +90
+    await motorPairMoveTankForDegrees(PAIRS.PAIR_1, 360, 360, 0) // +90 → 180 total
+    expect(motionTiltAngles()[0]).toBeCloseTo(1800, -1)
+  })
+
+  it('wraps past 180 degrees into the negative half', async () => {
+    // Three +90 turns = 270 degrees → wraps to -90 (-900 decidegrees)
+    await motorPairMoveTankForDegrees(PAIRS.PAIR_1, 360, 360, 0)
+    await motorPairMoveTankForDegrees(PAIRS.PAIR_1, 360, 360, 0)
+    await motorPairMoveTankForDegrees(PAIRS.PAIR_1, 360, 360, 0)
+    expect(motionTiltAngles()[0]).toBeCloseTo(-900, -1)
+  })
+
+  it('reflects yaw mid-move (continuous accumulation)', async () => {
+    const promise = motorPairMoveForDegrees(PAIRS.PAIR_1, 360, 100, 360)
+    // Sample partway through; yaw should already be nonzero before completion.
+    await new Promise(r => setTimeout(r, 250))
+    const midYaw = motionTiltAngles()[0]
+    expect(midYaw).toBeGreaterThan(0)
+    expect(midYaw).toBeLessThan(1800)
+    await promise
+  })
+
+  it('honors a wider axle track from config (turns less)', async () => {
+    setRobotConfig({ axleTrackMm: 224 }) // double the track → half the turn
+    await motorPairMoveTankForDegrees(PAIRS.PAIR_1, 360, 360, 0)
+    expect(motionTiltAngles()[0]).toBeCloseTo(450, -1)
+  })
+
+  it('is not changed by resetting a wheel encoder', async () => {
+    await motorPairMoveTankForDegrees(PAIRS.PAIR_1, 360, 360, 0) // +90
+    const before = motionTiltAngles()[0]
+    motorResetRelativePosition(PORTS.A, 0)
+    expect(motionTiltAngles()[0]).toBe(before)
+  })
+
+  it('ignores movement of a non-drivebase pair', async () => {
+    // Drivebase is PAIR_1 (A/B); moving PAIR_2 (C/D) must not change yaw.
+    motorPairPair(PAIRS.PAIR_2, PORTS.C, PORTS.D)
+    await motorPairMoveTankForDegrees(PAIRS.PAIR_2, 360, 360, 0)
+    expect(motionTiltAngles()[0]).toBe(0)
+  })
+
+  it('is reset to zero by resetState', async () => {
+    await motorPairMoveTankForDegrees(PAIRS.PAIR_1, 360, 360, 0)
+    resetState()
+    expect(motionTiltAngles()[0]).toBe(0)
+  })
+})
+
+describe('motion_sensor functions', () => {
+  it('tilt_angles reports pitch and roll as zero', () => {
+    const [, pitch, roll] = motionTiltAngles()
+    expect(pitch).toBe(0)
+    expect(roll).toBe(0)
+  })
+
+  it('reset_yaw sets the reported yaw in degrees', () => {
+    motionResetYaw(45)
+    expect(motionTiltAngles()[0]).toBe(450)
+  })
+
+  it('reset_yaw defaults to zero', async () => {
+    motorPairPair(PAIRS.PAIR_1, PORTS.A, PORTS.B)
+    await motorPairMoveTankForDegrees(PAIRS.PAIR_1, 360, 360, 0)
+    motionResetYaw()
+    expect(motionTiltAngles()[0]).toBe(0)
+  })
+
+  it('quaternion is the identity at zero yaw', () => {
+    expect(motionQuaternion()).toEqual([1, 0, 0, 0])
+  })
+
+  it('acceleration and angular_velocity are zero (no physics)', () => {
+    expect(motionAcceleration()).toEqual([0, 0, 0])
+    expect(motionAngularVelocity()).toEqual([0, 0, 0])
+  })
+
+  it('up_face is TOP and stable is true', () => {
+    expect(motionUpFace()).toBe(FACES.TOP)
+    expect(motionStable()).toBe(true)
   })
 })
