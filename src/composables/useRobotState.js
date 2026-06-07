@@ -1,4 +1,5 @@
-import { reactive, readonly } from 'vue'
+import { reactive, readonly, watch } from 'vue'
+import { deltaYawDegrees, normalizeDecidegrees, yawToQuaternion } from '../simulator/kinematics'
 
 // Motor port constants
 export const PORTS = {
@@ -33,6 +34,24 @@ export const PAIRS = {
   PAIR_1: 0,
   PAIR_2: 1,
   PAIR_3: 2
+}
+
+// motion_sensor face constants (which face points up). Values match SPIKE 3.
+export const FACES = {
+  TOP: 0,
+  FRONT: 1,
+  RIGHT: 2,
+  BOTTOM: 3,
+  BACK: 4,
+  LEFT: 5
+}
+
+// Default robot geometry, used by the kinematics layer to derive yaw from
+// drive-wheel rotation. Values match the standard SPIKE wheel (see project plan).
+const DEFAULT_CONFIG = {
+  wheelDiameterMm: 56,
+  axleTrackMm: 112,
+  drivebaseSlot: PAIRS.PAIR_1
 }
 
 // Create initial motor state
@@ -83,8 +102,38 @@ const state = reactive({
     [PAIRS.PAIR_2]: null,
     [PAIRS.PAIR_3]: null
   },
+  // Simulated IMU heading in degrees, clockwise-positive. Accumulated from
+  // drivebase wheel movement by the watcher below; read via motion_sensor.
+  yaw: 0,
+  config: { ...DEFAULT_CONFIG },
   logs: []
 })
+
+// When true, relativePosition changes do not accumulate yaw. Used by
+// reset_relative_position, which shifts a motor's encoder baseline without
+// physically moving the wheel (so the robot's heading must not change).
+let yawSuppressed = false
+
+// Continuously accumulate yaw from the configured drivebase's wheel movement.
+//
+// This is the "Option A" continuous-accumulation model: a synchronous watcher
+// fires on every relativePosition change, feeds the per-tick wheel deltas into
+// the kinematics formula, and adds the result to state.yaw. Because it runs
+// synchronously, tilt_angles() is correct at any instant, including mid-move.
+watch(
+  () => Object.values(PORTS).map(port => state.motors[port].relativePosition),
+  (newPositions, oldPositions) => {
+    if (yawSuppressed || !oldPositions) return
+    const slot = state.motorPairs[state.config.drivebaseSlot]
+    if (!slot) return
+    // Port numbers (0-5) double as indices into the position arrays.
+    const leftDelta = newPositions[slot.left] - oldPositions[slot.left]
+    const rightDelta = newPositions[slot.right] - oldPositions[slot.right]
+    if (leftDelta === 0 && rightDelta === 0) return
+    state.yaw += deltaYawDegrees(leftDelta, rightDelta, state.config)
+  },
+  { flush: 'sync' }
+)
 
 // Motor control functions
 export function motorRun(port, velocity) {
@@ -196,7 +245,11 @@ export function motorRunForTime(port, duration, velocity) {
 export function motorResetRelativePosition(port, position) {
   assertValidPort(port)
   const portName = Object.keys(PORTS).find(key => PORTS[key] === port)
+  // Resetting the encoder baseline must not turn the robot, so suppress yaw
+  // accumulation for this synchronous assignment.
+  yawSuppressed = true
   state.motors[port].relativePosition = position
+  yawSuppressed = false
   addLog(`Motor ${portName} relative position reset to ${position}`)
 }
 
@@ -562,6 +615,65 @@ export function motorPairMoveTankForTime(pair, duration, leftVelocity, rightVelo
   })
 }
 
+// Robot configuration (geometry used by the kinematics layer)
+export function setRobotConfig(partial) {
+  if (partial == null || typeof partial !== 'object') {
+    throw new Error('Robot config must be an object')
+  }
+  const next = { ...state.config, ...partial }
+  if (!(next.wheelDiameterMm > 0)) {
+    throw new Error(`Invalid wheelDiameterMm: ${next.wheelDiameterMm}`)
+  }
+  if (!(next.axleTrackMm > 0)) {
+    throw new Error(`Invalid axleTrackMm: ${next.axleTrackMm}`)
+  }
+  assertValidPair(next.drivebaseSlot)
+  state.config = next
+  addLog(
+    `Robot config: wheelDiameter=${next.wheelDiameterMm}mm, ` +
+    `axleTrack=${next.axleTrackMm}mm, drivebase=${pairName(next.drivebaseSlot)}`
+  )
+}
+
+// motion_sensor functions ---------------------------------------------------
+// Yaw is derived from drivebase wheel movement (see the watcher above). Pitch
+// and roll are always 0 in Phase 1 — there is no terrain or physics to tilt
+// against.
+
+// tilt_angles() → (yaw, pitch, roll) in decidegrees, yaw wrapped to (-1800, 1800].
+export function motionTiltAngles() {
+  return [normalizeDecidegrees(Math.round(state.yaw * 10)), 0, 0]
+}
+
+// reset_yaw(angle) sets the reported yaw to `angle` degrees (default 0).
+export function motionResetYaw(angle = 0) {
+  state.yaw = angle
+  addLog(`Yaw reset to ${angle}`)
+}
+
+// acceleration()/angular_velocity() are not simulated in Phase 1 (no physics).
+export function motionAcceleration() {
+  return [0, 0, 0]
+}
+
+export function motionAngularVelocity() {
+  return [0, 0, 0]
+}
+
+// quaternion() derived from yaw alone (pitch/roll = 0).
+export function motionQuaternion() {
+  return yawToQuaternion(state.yaw)
+}
+
+// up_face() is always TOP with no tilt simulation; stable() is always true.
+export function motionUpFace() {
+  return FACES.TOP
+}
+
+export function motionStable() {
+  return true
+}
+
 // Logging functions
 export function addLog(message) {
   const timestamp = new Date().toLocaleTimeString()
@@ -580,6 +692,10 @@ export function resetState() {
   for (const pair of Object.values(PAIRS)) {
     state.motorPairs[pair] = null
   }
+  // Reset after motors/pairs so any yaw the watcher accrued during reset is
+  // discarded; restore default geometry.
+  state.yaw = 0
+  state.config = { ...DEFAULT_CONFIG }
   clearLogs()
 }
 
@@ -591,6 +707,7 @@ export function useRobotState() {
     DIRECTION,
     STOP_ACTION,
     PAIRS,
+    FACES,
     motorRun,
     motorStop,
     motorRunForDegrees,
@@ -610,6 +727,14 @@ export function useRobotState() {
     motorPairMoveForTime,
     motorPairMoveTankForDegrees,
     motorPairMoveTankForTime,
+    setRobotConfig,
+    motionTiltAngles,
+    motionResetYaw,
+    motionAcceleration,
+    motionAngularVelocity,
+    motionQuaternion,
+    motionUpFace,
+    motionStable,
     addLog,
     clearLogs,
     resetState

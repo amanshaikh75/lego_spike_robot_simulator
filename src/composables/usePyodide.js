@@ -1,6 +1,6 @@
 import { ref, shallowRef } from 'vue'
 import { loadPyodide } from 'pyodide'
-import { motorRun, motorStop, motorRunForDegrees, motorRunForTime, motorRunToAbsolutePosition, motorRunToRelativePosition, motorResetRelativePosition, motorVelocity, motorAbsolutePosition, motorRelativePosition, motorPairPair, motorPairUnpair, motorPairMove, motorPairMoveTank, motorPairStop, motorPairMoveForDegrees, motorPairMoveForTime, motorPairMoveTankForDegrees, motorPairMoveTankForTime, addLog, PORTS, DIRECTION, STOP_ACTION, PAIRS } from './useRobotState'
+import { motorRun, motorStop, motorRunForDegrees, motorRunForTime, motorRunToAbsolutePosition, motorRunToRelativePosition, motorResetRelativePosition, motorVelocity, motorAbsolutePosition, motorRelativePosition, motorPairPair, motorPairUnpair, motorPairMove, motorPairMoveTank, motorPairStop, motorPairMoveForDegrees, motorPairMoveForTime, motorPairMoveTankForDegrees, motorPairMoveTankForTime, motionTiltAngles, motionResetYaw, motionAcceleration, motionAngularVelocity, motionQuaternion, motionUpFace, motionStable, addLog, PORTS, DIRECTION, STOP_ACTION, PAIRS, FACES } from './useRobotState'
 
 const pyodide = shallowRef(null)
 const isLoading = ref(true)
@@ -167,6 +167,47 @@ async def move_tank_for_time(pair, duration, left_velocity, right_velocity, *, s
     await _motor_pair_move_tank_for_time(pair, duration, left_velocity, right_velocity)
 `
 
+// Python code for the hub.motion_sensor module
+const motionSensorModule = `
+from js import _motion_tilt_angles, _motion_reset_yaw, _motion_acceleration, _motion_angular_velocity, _motion_quaternion, _motion_up_face, _motion_stable
+
+# Face constants (which face points up)
+TOP = ${FACES.TOP}
+FRONT = ${FACES.FRONT}
+RIGHT = ${FACES.RIGHT}
+BOTTOM = ${FACES.BOTTOM}
+BACK = ${FACES.BACK}
+LEFT = ${FACES.LEFT}
+
+def tilt_angles():
+    """Return (yaw, pitch, roll) in decidegrees. Pitch and roll are always 0."""
+    return tuple(_motion_tilt_angles())
+
+def reset_yaw(angle=0):
+    """Set the yaw angle to the given value in degrees (default 0)."""
+    _motion_reset_yaw(angle)
+
+def acceleration(raw_unfiltered=False):
+    """Return (x, y, z) acceleration. Not simulated in Phase 1 (returns zeros)."""
+    return tuple(_motion_acceleration())
+
+def angular_velocity(raw_unfiltered=False):
+    """Return (x, y, z) angular velocity. Not simulated in Phase 1 (returns zeros)."""
+    return tuple(_motion_angular_velocity())
+
+def quaternion():
+    """Return the orientation quaternion (w, x, y, z), derived from yaw."""
+    return tuple(_motion_quaternion())
+
+def up_face():
+    """Return which face points up. Always TOP without tilt simulation."""
+    return _motion_up_face()
+
+def stable():
+    """Return whether the hub is stable. Always True without physics."""
+    return _motion_stable()
+`
+
 async function initPyodide() {
   try {
     isLoading.value = true
@@ -197,6 +238,13 @@ async function initPyodide() {
     globalThis._motor_pair_move_for_time = motorPairMoveForTime
     globalThis._motor_pair_move_tank_for_degrees = motorPairMoveTankForDegrees
     globalThis._motor_pair_move_tank_for_time = motorPairMoveTankForTime
+    globalThis._motion_tilt_angles = motionTiltAngles
+    globalThis._motion_reset_yaw = motionResetYaw
+    globalThis._motion_acceleration = motionAcceleration
+    globalThis._motion_angular_velocity = motionAngularVelocity
+    globalThis._motion_quaternion = motionQuaternion
+    globalThis._motion_up_face = motionUpFace
+    globalThis._motion_stable = motionStable
     globalThis._add_log = addLog
 
     // Create the hub package with port module
@@ -237,6 +285,15 @@ import types
 motor_pair = types.ModuleType('motor_pair')
 exec('''${motorPairModule}''', motor_pair.__dict__)
 sys.modules['motor_pair'] = motor_pair
+`)
+
+    // Create the hub.motion_sensor module and attach it to the hub package
+    await pyodide.value.runPythonAsync(`
+import types
+motion_sensor = types.ModuleType('hub.motion_sensor')
+exec('''${motionSensorModule}''', motion_sensor.__dict__)
+hub.motion_sensor = motion_sensor
+sys.modules['hub.motion_sensor'] = motion_sensor
 `)
 
     // Extend the time module with MicroPython-compatible functions
