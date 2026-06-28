@@ -45,4 +45,19 @@ Web-based simulator for LEGO Spike Prime robots. Tests Python code before deploy
 - Task 3 (`hub.motion_sensor` module): COMPLETE for the motion-derived API — `tilt_angles()` (yaw from kinematics; pitch/roll always 0; decidegrees wrapped to (-1800, 1800]), `reset_yaw(angle=0)` (degrees), `quaternion()` (from yaw), `up_face()` (TOP), `stable()` (True). `acceleration()` / `angular_velocity()` are documented Phase-1 stubs returning zeros (no physics). NOT yet implemented: `gesture()`, `tap_count()`, `reset_tap_count()`, `set_yaw_face()`, `get_yaw_face()` and the gesture constants.
 - Task 4 (constants): COMPLETE — face constants `TOP, FRONT, RIGHT, BOTTOM, BACK, LEFT` (0-5) exposed on both the JS `FACES` export and the Python `motion_sensor` module.
 - Tests: `src/simulator/kinematics.test.js` (pure math), yaw-tracking + motion_sensor blocks in `useRobotState.test.js`, and `tests/test_motion_sensor.py` (manual UI integration test).
-#### Milestone 1.5: Dashboard & Polish — NOT STARTED
+#### Milestone 1.5: Dashboard & Polish — COMPLETE
+- Task 1 (`Dashboard.vue`): COMPLETE — live panel showing all six motor ports (velocity, absolute/relative position, running badge), motor-pair assignments (PAIR_1/2/3 with left/right ports), IMU values (yaw in degrees and decidegrees, pitch/roll = 0), and the robot's dead-reckoned (x, y) position in mm. Reads the readonly reactive `state`; constants imported from `useRobotState`.
+- Task 2 (config upload/edit): COMPLETE — new `src/simulator/config.js` (`parseConfig`/`parseConfigJson` + `DEFAULT_CONFIG_JSON`) parses the documented JSON config (validates geometry, maps port letters A-F and slot 1-3) with no imports (pure, avoids a circular dep with `useRobotState`). `useRobotState.applyConfig()` orchestrates it: re-pairs the drivebase slot and calls `setRobotConfig`. `ConfigEditor.vue` provides an editable textarea seeded with the default config, an Upload button (FileReader) and Apply button, with inline success/error feedback.
+- Task 3 (error handling & feedback): COMPLETE — config errors surface inline in `ConfigEditor`; a header **Reset Robot** button calls `resetState()`; Pyodide status badge already present.
+- Task 4 (docs): COMPLETE — `README.md` rewritten with project overview, setup, usage, config format, and Phase-1 limitations.
+- Position tracking: robot (x, y) is integrated from drivebase wheel movement in a **post-flush** watcher fed by accumulators (the sync yaw watcher fills them and already ignores encoder resets). Combining each tick's left+right motion into one step means driving straight produces no sideways drift and a pure pivot produces no translation. New kinematics helpers `forwardDistance()` and `positionDelta()` hold the pure math.
+- Tests: `src/simulator/config.test.js` (parser), new `forwardDistance`/`positionDelta` blocks in `kinematics.test.js`, and position-tracking + `applyConfig` blocks in `useRobotState.test.js`. Full suite: 251 passing.
+
+### Phase 1 — COMPLETE
+All five milestones (1.1–1.5) of the Phase 1 MVP are done: SPIKE Python API
+(`motor`, `motor_pair`, `runloop`, `time`, `hub.port`, `hub.motion_sensor`),
+kinematics-derived yaw and position, and a console + dashboard + config UI. The
+remaining `motion_sensor` gaps (`gesture()`, tap APIs, `set_yaw_face`/
+`get_yaw_face`) require physics/gesture input that is out of Phase-1 scope. Next
+up is Phase 2 (2D top-down visualization), which can build on the (x, y)/yaw the
+kinematics layer now produces.
