@@ -36,6 +36,32 @@ export function deltaYawDegrees(leftDegrees, rightDegrees, { wheelDiameterMm, ax
   return (deltaYawRad * 180) / Math.PI
 }
 
+// Forward (translational) distance the robot's centre travels in a tick where
+// the left and right wheels rotate leftDegrees/rightDegrees. It is the mean of
+// the two wheel arcs (a turning robot's centre advances by the average).
+export function forwardDistance(leftDegrees, rightDegrees, wheelDiameterMm) {
+  return (
+    arcDistance(leftDegrees, wheelDiameterMm) +
+    arcDistance(rightDegrees, wheelDiameterMm)
+  ) / 2
+}
+
+// Displacement {dx, dy} in mm of the robot centre for a tick in which the drive
+// wheels rotate leftDegrees/rightDegrees, starting from heading `headingDegrees`
+// (clockwise-positive, 0 = facing +Y). The integration uses the heading at the
+// midpoint of the tick (start heading + half the tick's yaw change), which keeps
+// curved paths accurate without needing sub-stepping.
+//
+// In the top-down frame, +X points right and +Y points "north" (the robot's
+// initial forward direction). A clockwise heading of 90° therefore faces +X, so
+// dx uses sin(heading) and dy uses cos(heading).
+export function positionDelta(leftDegrees, rightDegrees, headingDegrees, config) {
+  const distance = forwardDistance(leftDegrees, rightDegrees, config.wheelDiameterMm)
+  const deltaYaw = deltaYawDegrees(leftDegrees, rightDegrees, config)
+  const midRad = ((headingDegrees + deltaYaw / 2) * Math.PI) / 180
+  return { dx: distance * Math.sin(midRad), dy: distance * Math.cos(midRad) }
+}
+
 // Normalize an angle in degrees to the half-open range (-180, 180].
 export function normalizeDegrees(degrees) {
   let d = ((degrees % 360) + 360) % 360 // [0, 360)

@@ -1,5 +1,6 @@
 import { reactive, readonly, watch } from 'vue'
-import { deltaYawDegrees, normalizeDecidegrees, yawToQuaternion } from '../simulator/kinematics'
+import { deltaYawDegrees, normalizeDecidegrees, positionDelta, yawToQuaternion } from '../simulator/kinematics'
+import { parseConfig, parseConfigJson } from '../simulator/config'
 
 // Motor port constants
 export const PORTS = {
@@ -105,6 +106,10 @@ const state = reactive({
   // Simulated IMU heading in degrees, clockwise-positive. Accumulated from
   // drivebase wheel movement by the watcher below; read via motion_sensor.
   yaw: 0,
+  // Estimated robot position in millimetres, integrated from drivebase wheel
+  // movement (top-down frame: +x right, +y the initial forward direction).
+  // Dead-reckoned for the dashboard; not part of the SPIKE API.
+  position: { x: 0, y: 0 },
   config: { ...DEFAULT_CONFIG },
   logs: []
 })
@@ -113,6 +118,16 @@ const state = reactive({
 // reset_relative_position, which shifts a motor's encoder baseline without
 // physically moving the wheel (so the robot's heading must not change).
 let yawSuppressed = false
+
+// Accumulated drive-wheel rotation (degrees) since the last position
+// integration. The synchronous yaw watcher fills these (it already ignores
+// encoder resets); the post-flush position watcher below consumes them. Routing
+// position through accumulators lets each tick's left+right motion be integrated
+// as one step, which avoids the spurious sideways drift that per-wheel
+// integration produces (yaw is linear in the wheel deltas and so is unaffected,
+// but position uses sin/cos and is not).
+let driveAccumLeft = 0
+let driveAccumRight = 0
 
 // Continuously accumulate yaw from the configured drivebase's wheel movement.
 //
@@ -130,9 +145,38 @@ watch(
     const leftDelta = newPositions[slot.left] - oldPositions[slot.left]
     const rightDelta = newPositions[slot.right] - oldPositions[slot.right]
     if (leftDelta === 0 && rightDelta === 0) return
+    // Accumulate this fire's wheel motion for the position watcher, then advance
+    // the heading. (A single tick updates the two wheels as two separate
+    // mutations, so this watcher fires once per wheel; the accumulators let the
+    // position watcher recombine them.)
+    driveAccumLeft += leftDelta
+    driveAccumRight += rightDelta
     state.yaw += deltaYawDegrees(leftDelta, rightDelta, state.config)
   },
   { flush: 'sync' }
+)
+
+// Integrate robot position once per flush from the accumulated drive-wheel
+// motion. This runs after the synchronous yaw watcher, so state.yaw already
+// includes this batch's turn; we subtract it back out to recover the heading at
+// the start of the batch and integrate along the arc's midpoint. Because it is
+// post-flush, the left and right wheel updates within a tick are combined into a
+// single step — driving straight produces no sideways drift, and a pure pivot
+// produces no translation. Encoder resets never reach here: the sync watcher
+// skips them, so the accumulators stay at zero.
+watch(
+  () => Object.values(PORTS).map(port => state.motors[port].relativePosition),
+  () => {
+    if (driveAccumLeft === 0 && driveAccumRight === 0) return
+    const headingBefore =
+      state.yaw - deltaYawDegrees(driveAccumLeft, driveAccumRight, state.config)
+    const { dx, dy } = positionDelta(driveAccumLeft, driveAccumRight, headingBefore, state.config)
+    state.position.x += dx
+    state.position.y += dy
+    driveAccumLeft = 0
+    driveAccumRight = 0
+  },
+  { flush: 'post' }
 )
 
 // Motor control functions
@@ -635,6 +679,30 @@ export function setRobotConfig(partial) {
   )
 }
 
+// Apply a full robot configuration (the user-facing JSON shape, or a string of
+// it). This both sets the robot geometry and pairs the configured drivebase
+// motors so the kinematics layer can derive yaw/position. Returns the parsed
+// config. Throws (without mutating state) if the config is invalid.
+export function applyConfig(jsonOrObject) {
+  const parsed = typeof jsonOrObject === 'string'
+    ? parseConfigJson(jsonOrObject)
+    : parseConfig(jsonOrObject)
+
+  // Re-pair the drivebase slot from scratch so re-applying a config is
+  // idempotent; clearing first avoids "already paired" errors.
+  state.motorPairs[parsed.drivebaseSlot] = null
+  motorPairPair(parsed.drivebaseSlot, parsed.leftMotorPort, parsed.rightMotorPort)
+  setRobotConfig({
+    wheelDiameterMm: parsed.wheelDiameterMm,
+    axleTrackMm: parsed.axleTrackMm,
+    drivebaseSlot: parsed.drivebaseSlot
+  })
+  if (parsed.name) {
+    addLog(`Loaded robot configuration: ${parsed.name}`)
+  }
+  return parsed
+}
+
 // motion_sensor functions ---------------------------------------------------
 // Yaw is derived from drivebase wheel movement (see the watcher above). Pitch
 // and roll are always 0 in Phase 1 — there is no terrain or physics to tilt
@@ -692,9 +760,13 @@ export function resetState() {
   for (const pair of Object.values(PAIRS)) {
     state.motorPairs[pair] = null
   }
-  // Reset after motors/pairs so any yaw the watcher accrued during reset is
-  // discarded; restore default geometry.
+  // Reset after motors/pairs so any yaw/position the watcher accrued during
+  // reset is discarded; restore default geometry.
   state.yaw = 0
+  state.position.x = 0
+  state.position.y = 0
+  driveAccumLeft = 0
+  driveAccumRight = 0
   state.config = { ...DEFAULT_CONFIG }
   clearLogs()
 }
@@ -728,6 +800,7 @@ export function useRobotState() {
     motorPairMoveTankForDegrees,
     motorPairMoveTankForTime,
     setRobotConfig,
+    applyConfig,
     motionTiltAngles,
     motionResetYaw,
     motionAcceleration,

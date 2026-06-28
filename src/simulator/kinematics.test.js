@@ -3,6 +3,8 @@ import {
   wheelCircumference,
   arcDistance,
   deltaYawDegrees,
+  forwardDistance,
+  positionDelta,
   normalizeDegrees,
   normalizeDecidegrees,
   yawToQuaternion
@@ -97,6 +99,37 @@ describe('normalizeDecidegrees', () => {
   it('wraps values above 1800 into the negative half', () => {
     expect(normalizeDecidegrees(2700)).toBe(-900)
     expect(normalizeDecidegrees(3600)).toBe(0)
+  })
+})
+
+describe('forwardDistance', () => {
+  it('is the mean of the two wheel arcs', () => {
+    // Both wheels turn one full rotation → one circumference forward.
+    expect(forwardDistance(360, 360, 56)).toBeCloseTo(Math.PI * 56, 6)
+  })
+
+  it('is zero for a pivot turn (equal and opposite wheels)', () => {
+    expect(forwardDistance(360, -360, 56)).toBeCloseTo(0, 6)
+  })
+})
+
+describe('positionDelta', () => {
+  it('moves along +y when driving straight from zero heading', () => {
+    const { dx, dy } = positionDelta(360, 360, 0, STANDARD)
+    expect(dx).toBeCloseTo(0, 6)
+    expect(dy).toBeCloseTo(Math.PI * 56, 6)
+  })
+
+  it('moves along +x when driving straight while heading 90 (clockwise)', () => {
+    const { dx, dy } = positionDelta(360, 360, 90, STANDARD)
+    expect(dx).toBeCloseTo(Math.PI * 56, 6)
+    expect(dy).toBeCloseTo(0, 6)
+  })
+
+  it('barely translates during a pure pivot', () => {
+    const { dx, dy } = positionDelta(360, -360, 0, STANDARD)
+    expect(dx).toBeCloseTo(0, 6)
+    expect(dy).toBeCloseTo(0, 6)
   })
 })
 

@@ -24,6 +24,7 @@ import {
   motorPairMoveTankForDegrees,
   motorPairMoveTankForTime,
   setRobotConfig,
+  applyConfig,
   motionTiltAngles,
   motionResetYaw,
   motionAcceleration,
@@ -1322,5 +1323,83 @@ describe('motion_sensor functions', () => {
   it('up_face is TOP and stable is true', () => {
     expect(motionUpFace()).toBe(FACES.TOP)
     expect(motionStable()).toBe(true)
+  })
+})
+
+describe('position tracking', () => {
+  it('starts at the origin', () => {
+    const { state } = useRobotState()
+    expect(state.position.x).toBe(0)
+    expect(state.position.y).toBe(0)
+  })
+
+  // The closed-form accuracy of the kinematics lives in kinematics.test.js;
+  // these tests confirm the per-tick motion is integrated into state correctly.
+  it('advances one wheel circumference forward (+y) when driving straight', async () => {
+    motorPairPair(PAIRS.PAIR_1, PORTS.A, PORTS.B)
+    await motorPairMoveTankForDegrees(PAIRS.PAIR_1, 360, 360, 360)
+    const { state } = useRobotState()
+    expect(state.position.y).toBeCloseTo(Math.PI * 56, 3) // one circumference
+    expect(state.position.x).toBeCloseTo(0, 3) // no sideways drift
+  })
+
+  it('does not translate during a pure pivot', async () => {
+    motorPairPair(PAIRS.PAIR_1, PORTS.A, PORTS.B)
+    await motorPairMoveTankForDegrees(PAIRS.PAIR_1, 360, 360, -360)
+    const { state } = useRobotState()
+    expect(state.position.x).toBeCloseTo(0, 3)
+    expect(state.position.y).toBeCloseTo(0, 3)
+  })
+
+  it('moves along +x after a 90° clockwise turn then a straight drive', async () => {
+    motorPairPair(PAIRS.PAIR_1, PORTS.A, PORTS.B)
+    motionResetYaw(90) // face +x (clockwise-positive heading)
+    await motorPairMoveTankForDegrees(PAIRS.PAIR_1, 360, 360, 360)
+    const { state } = useRobotState()
+    expect(state.position.x).toBeCloseTo(Math.PI * 56, 3)
+    expect(state.position.y).toBeCloseTo(0, 3)
+  })
+
+  it('is reset to the origin by resetState', async () => {
+    motorPairPair(PAIRS.PAIR_1, PORTS.A, PORTS.B)
+    await motorPairMoveTankForDegrees(PAIRS.PAIR_1, 360, 360, 360)
+    resetState()
+    const { state } = useRobotState()
+    expect(state.position.x).toBe(0)
+    expect(state.position.y).toBe(0)
+  })
+})
+
+describe('applyConfig', () => {
+  const CONFIG = {
+    robot: { name: 'Bot', wheelDiameterMm: 62, axleTrackMm: 120 },
+    drivebase: { leftMotorPort: 'C', rightMotorPort: 'D', motorPairSlot: 2 }
+  }
+
+  it('sets geometry and pairs the configured drivebase', () => {
+    applyConfig(CONFIG)
+    const { state } = useRobotState()
+    expect(state.config.wheelDiameterMm).toBe(62)
+    expect(state.config.axleTrackMm).toBe(120)
+    expect(state.config.drivebaseSlot).toBe(PAIRS.PAIR_2)
+    expect(state.motorPairs[PAIRS.PAIR_2]).toEqual({ left: PORTS.C, right: PORTS.D })
+  })
+
+  it('accepts a JSON string', () => {
+    const parsed = applyConfig(JSON.stringify(CONFIG))
+    expect(parsed.name).toBe('Bot')
+  })
+
+  it('is idempotent when applied twice', () => {
+    applyConfig(CONFIG)
+    expect(() => applyConfig(CONFIG)).not.toThrow()
+    const { state } = useRobotState()
+    expect(state.motorPairs[PAIRS.PAIR_2]).toEqual({ left: PORTS.C, right: PORTS.D })
+  })
+
+  it('throws on an invalid config without leaving a partial pairing', () => {
+    expect(() => applyConfig({ robot: {}, drivebase: {} })).toThrow()
+    const { state } = useRobotState()
+    expect(state.motorPairs[PAIRS.PAIR_1]).toBeNull()
   })
 })
