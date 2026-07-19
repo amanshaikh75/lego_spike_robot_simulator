@@ -32,6 +32,8 @@ import {
   motionQuaternion,
   motionUpFace,
   motionStable,
+  motionSetYawFace,
+  motionGetYawFace,
   addLog,
   clearLogs,
   resetState,
@@ -1323,6 +1325,27 @@ describe('motion_sensor functions', () => {
   it('up_face is TOP and stable is true', () => {
     expect(motionUpFace()).toBe(FACES.TOP)
     expect(motionStable()).toBe(true)
+  })
+
+  it('get_yaw_face defaults to TOP', () => {
+    expect(motionGetYawFace()).toBe(FACES.TOP)
+  })
+
+  it('set_yaw_face records the face and round-trips through get_yaw_face', () => {
+    expect(motionSetYawFace(FACES.FRONT)).toBe(true)
+    expect(motionGetYawFace()).toBe(FACES.FRONT)
+  })
+
+  it('set_yaw_face rejects an invalid face and leaves the current one', () => {
+    motionSetYawFace(FACES.LEFT)
+    expect(motionSetYawFace(99)).toBe(false)
+    expect(motionGetYawFace()).toBe(FACES.LEFT)
+  })
+
+  it('yaw face is reset to TOP by resetState', () => {
+    motionSetYawFace(FACES.BACK)
+    resetState()
+    expect(motionGetYawFace()).toBe(FACES.TOP)
   })
 })
 
