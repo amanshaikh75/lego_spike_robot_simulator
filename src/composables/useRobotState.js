@@ -106,6 +106,10 @@ const state = reactive({
   // Simulated IMU heading in degrees, clockwise-positive. Accumulated from
   // drivebase wheel movement by the watcher below; read via motion_sensor.
   yaw: 0,
+  // Which hub face is used as the yaw axis (motion_sensor.set_yaw_face). The
+  // simulator only models yaw about the vertical axis, so this is bookkeeping
+  // that set_yaw_face/get_yaw_face round-trip; default is TOP.
+  yawFace: FACES.TOP,
   // Estimated robot position in millimetres, integrated from drivebase wheel
   // movement (top-down frame: +x right, +y the initial forward direction).
   // Dead-reckoned for the dashboard; not part of the SPIKE API.
@@ -742,6 +746,23 @@ export function motionStable() {
   return true
 }
 
+// set_yaw_face(face) selects which hub face measures yaw. The simulator only
+// models yaw about the vertical axis, so this records the requested face and
+// returns True (matching the SPIKE API's success flag) for valid faces.
+export function motionSetYawFace(face) {
+  if (!Object.values(FACES).includes(face)) {
+    return false
+  }
+  state.yawFace = face
+  addLog(`Yaw face set to ${face}`)
+  return true
+}
+
+// get_yaw_face() returns the currently configured yaw face (default TOP).
+export function motionGetYawFace() {
+  return state.yawFace
+}
+
 // Logging functions
 export function addLog(message) {
   const timestamp = new Date().toLocaleTimeString()
@@ -763,6 +784,7 @@ export function resetState() {
   // Reset after motors/pairs so any yaw/position the watcher accrued during
   // reset is discarded; restore default geometry.
   state.yaw = 0
+  state.yawFace = FACES.TOP
   state.position.x = 0
   state.position.y = 0
   driveAccumLeft = 0
@@ -808,6 +830,8 @@ export function useRobotState() {
     motionQuaternion,
     motionUpFace,
     motionStable,
+    motionSetYawFace,
+    motionGetYawFace,
     addLog,
     clearLogs,
     resetState
