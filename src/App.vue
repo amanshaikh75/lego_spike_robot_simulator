@@ -2,6 +2,8 @@
 import { onMounted } from 'vue'
 import CodeInput from './components/CodeInput.vue'
 import Console from './components/Console.vue'
+import ConfigEditor from './components/ConfigEditor.vue'
+import Dashboard from './components/Dashboard.vue'
 import { useRobotState } from './composables/useRobotState'
 import { usePyodide } from './composables/usePyodide'
 
@@ -19,6 +21,10 @@ async function handleRunCode(code) {
 function handleClearConsole() {
   clearLogs()
 }
+
+function handleReset() {
+  resetState()
+}
 </script>
 
 <template>
@@ -28,6 +34,7 @@ function handleClearConsole() {
       <span v-if="isLoading" class="status loading">Loading Pyodide...</span>
       <span v-else-if="isReady" class="status ready">Ready</span>
       <span v-else class="status error">Error</span>
+      <button class="reset-btn" :disabled="!isReady" @click="handleReset">Reset Robot</button>
     </header>
 
     <main>
@@ -37,6 +44,14 @@ function handleClearConsole() {
 
       <div class="panel console-panel">
         <Console :logs="state.logs" @clear="handleClearConsole" />
+      </div>
+
+      <div class="panel dashboard-panel">
+        <Dashboard :state="state" />
+      </div>
+
+      <div class="panel config-panel">
+        <ConfigEditor :disabled="!isReady" />
       </div>
     </main>
   </div>
@@ -86,6 +101,26 @@ h1 {
   color: #721c24;
 }
 
+.reset-btn {
+  margin-left: auto;
+  padding: 6px 14px;
+  font-size: 13px;
+  background-color: #666;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.reset-btn:hover:not(:disabled) {
+  background-color: #555;
+}
+
+.reset-btn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
 main {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -97,6 +132,11 @@ main {
   padding: 15px;
   border-radius: 8px;
   border: 1px solid #e9ecef;
+}
+
+.dashboard-panel,
+.config-panel {
+  grid-column: 1 / -1;
 }
 
 @media (max-width: 800px) {

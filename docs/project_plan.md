@@ -360,19 +360,19 @@ spike-simulator/
 - [ ] `until(function, timeout)` → Awaitable
 
 ### hub.motion_sensor
-- [ ] `tilt_angles()` → tuple[int, int, int] (yaw, pitch, roll in decidegrees)
-- [ ] `reset_yaw(angle)`
-- [ ] `acceleration(raw_unfiltered)` → tuple[int, int, int]
-- [ ] `angular_velocity(raw_unfiltered)` → tuple[int, int, int]
-- [ ] `quaternion()` → tuple[float, float, float, float]
-- [ ] `up_face()` → int
-- [ ] `stable()` → bool
+- [x] `tilt_angles()` → tuple[int, int, int] (yaw, pitch, roll in decidegrees) — yaw from kinematics; pitch/roll always 0
+- [x] `reset_yaw(angle)` — angle in degrees
+- [x] `acceleration(raw_unfiltered)` → tuple[int, int, int] — Phase 1 stub (zeros, no physics)
+- [x] `angular_velocity(raw_unfiltered)` → tuple[int, int, int] — Phase 1 stub (zeros, no physics)
+- [x] `quaternion()` → tuple[float, float, float, float] — derived from yaw
+- [x] `up_face()` → int — always TOP (no tilt simulation)
+- [x] `stable()` → bool — always True
 - [ ] `gesture()` → int
 - [ ] `tap_count()` → int
 - [ ] `reset_tap_count()`
 - [ ] `set_yaw_face(up)` → bool
 - [ ] `get_yaw_face()` → int
-- [ ] Constants: TOP, FRONT, RIGHT, BOTTOM, BACK, LEFT (values 0-5)
+- [x] Constants: TOP, FRONT, RIGHT, BOTTOM, BACK, LEFT (values 0-5)
 - [ ] Constants: TAPPED, DOUBLE_TAPPED, SHAKEN, FALLING, UNKNOWN
 
 ---
@@ -396,16 +396,3 @@ spike-simulator/
 1. Create test programs for each milestone
 2. Compare output with real Spike Prime hub where possible
 3. Manual testing via the web UI
-
----
-
-## Next Steps
-
-Ready to begin **Milestone 1.1: Project Setup & Basic Motor**
-
-Tasks:
-1. Initialize Vue + Vite project
-2. Set up Pyodide integration
-3. Implement `hub.port` module
-4. Implement basic `motor.run()` and `motor.stop()`
-5. Create CodeInput and Console components
