@@ -219,6 +219,135 @@ runloop.run(main())
 
 ---
 
+## Phase 2 Detailed Plan — 2D Top-Down Visualization
+
+**Status:** PLANNED (Phase 1 complete). This section is the working plan; check
+off milestones as they land.
+
+### Goal
+
+Render the robot's live position and heading on a top-down field, with a motion
+trail, so a program's movement can be *watched* rather than read off numbers.
+Phase 1 already produces everything the view needs — the kinematics layer keeps
+`state.position.{x, y}` (mm) and `state.yaw` (degrees) continuously up to date —
+so Phase 2 is predominantly a rendering layer over existing reactive state, plus
+the pure world↔screen math to support it.
+
+### Foundations already in place (from Phase 1)
+
+- `state.position` — `{ x, y }` in **millimetres**, integrated from drivebase
+  wheel motion. Frame: **+x right, +y = the robot's initial forward direction**
+  ("north"). Origin is where the robot started / last reset.
+- `state.yaw` — heading in **degrees, clockwise-positive**, `0` = facing +y.
+  (`motion_sensor.tilt_angles()[0]` is the decidegree, wrapped form.)
+- `state.config` — `{ wheelDiameterMm, axleTrackMm, drivebaseSlot }`, used to
+  size the robot footprint on the field.
+- `useRobotState()` returns a **readonly** reactive `state` and a `resetState()`
+  that zeroes position/yaw. Updates arrive on the ~50ms move ticks.
+- `src/simulator/kinematics.js` is the model for how Phase 2 code should be
+  structured: **pure, DOM-free, unit-tested math** in `src/simulator/`, with the
+  Vue component kept thin.
+
+### Design decisions to confirm before coding
+
+These are the choices that shape the work; resolve them at implementation start
+(recommendation in **bold**):
+
+1. **Renderer: Canvas 2D vs SVG.** **Canvas 2D** — the growing trail is many
+   points, and Canvas redraws cheaply; SVG nodes would accumulate. Redraw is
+   driven by a Vue `watch` on `state.position`/`state.yaw` (they change on the
+   50ms ticks), with `requestAnimationFrame` coalescing so we never draw more
+   than once per frame. Account for `devicePixelRatio` for crisp lines.
+2. **Camera: fixed origin vs follow-robot.** **Fixed field with pan/zoom**, plus
+   a "recenter / fit" control. Following the robot hides how far it has actually
+   travelled, which is the point of the view. (Milestone 2.3 adds the controls.)
+3. **Trail storage: view layer vs robot state.** **View layer.** Keep
+   `useRobotState` an API surface, not a view model. `FieldView` samples
+   `state.position` into a capped point buffer. The sampler (min-distance
+   thresholding, cap, reset handling) is pure and lives in
+   `src/simulator/trail.js` so it can be tested without a canvas.
+4. **Layout.** A new full-width `FieldView` panel in `App.vue`, placed above the
+   Dashboard so the field is the focal point and the numbers back it up.
+
+### Milestone 2.1: Static Field & Robot Render
+**Goal:** The robot appears on a field at its current position and heading.
+
+**Tasks:**
+1. `src/simulator/viewTransform.js` — pure world↔screen math: `worldToScreen`
+   / `screenToWorld` given a camera `{ centerXmm, centerYmm, pxPerMm }` and
+   canvas size. Handles the **+y-up screen flip** (world +y is north, screen +y
+   is down) and clockwise-yaw → screen-angle conversion.
+2. `src/components/FieldView.vue` — a sized/`devicePixelRatio`-aware `<canvas>`
+   that draws: field background, a reference grid (e.g. 100mm cells) with an
+   origin marker and x/y axes, and the robot as an **oriented footprint** (a
+   rectangle sized from `axleTrackMm` with a nose/arrow showing heading) at
+   `worldToScreen(state.position)` rotated by `state.yaw`.
+3. Redraw on `state.position`/`state.yaw` change via `watch` + rAF.
+4. Mount `FieldView` in `App.vue` (full-width panel).
+
+**Tests:** `src/simulator/viewTransform.test.js` — round-trips, the +y flip,
+origin-at-center, yaw→screen-angle. (Canvas drawing itself is verified by eye /
+a light mount smoke test; the math is where the unit tests go.)
+
+**Success Criteria:** Running a move program visibly moves and rotates the robot
+on the field, consistent with the Dashboard's x/y/yaw.
+
+### Milestone 2.2: Motion Trail
+**Goal:** The path the robot has driven is drawn behind it.
+
+**Tasks:**
+1. `src/simulator/trail.js` — pure trail buffer: append a point only when it is
+   ≥ N mm from the last (avoids flooding on tiny ticks), cap total points (ring
+   buffer), and expose the ordered points for drawing.
+2. `FieldView` feeds `state.position` into the buffer on each change and draws
+   the trail as a polyline under the robot (optionally fading older segments).
+3. Clear the trail when the robot resets — detect the position→(0,0)+yaw→0
+   transition, or expose a small reset signal from `useRobotState` for the view
+   to observe. (Confirm which during 2.1; prefer not to widen the state API if a
+   watch suffices.)
+
+**Tests:** `src/simulator/trail.test.js` — min-distance thresholding, cap/ring
+behaviour, clear.
+
+**Success Criteria:** Driving a square leaves a square trail; reset clears it.
+
+### Milestone 2.3: Interaction & Camera Controls
+**Goal:** The user can navigate the field.
+
+**Tasks:**
+1. Pan (drag) and zoom (wheel, cursor-anchored) by mutating the camera; all hit
+   math goes through `screenToWorld`.
+2. Toolbar: **Recenter/Fit** (frame origin + robot, or the whole trail),
+   zoom in/out buttons, **Clear trail** and a trail on/off toggle.
+3. Small overlay readout (scale bar in mm, live x/y/heading) — or defer to the
+   Dashboard if redundant.
+
+**Tests:** camera transform helpers (zoom-about-cursor keeps the world point
+under the cursor fixed) as pure functions.
+
+**Success Criteria:** The field can be panned/zoomed smoothly and reset to a
+sensible framing.
+
+### Milestone 2.4: Polish & Integration
+**Goal:** Ship-quality, responsive, documented.
+
+**Tasks:**
+1. Responsive canvas via `ResizeObserver`; re-render on resize; crisp on HiDPI.
+2. Reset wiring: clearing the robot clears the trail and recenters the camera.
+3. Docs: update `README.md` (new visualization section), regenerate
+   `docs/code_description.md`, and mark Phase 2 progress in `CLAUDE.md`.
+4. Final test pass; keep the suite green.
+
+**Success Criteria:** A newcomer can paste a drive program, press Run, and watch
+the robot trace its path on a field that they can pan, zoom, and reset.
+
+### Out of scope for Phase 2 (later phases)
+- 3D rendering (Phase 3), physics/collisions/friction (Phase 4).
+- Obstacles, walls, or a mat/board background image.
+- Editing the robot's pose by dragging it on the field.
+
+---
+
 ## Configuration File Format
 
 ```json
