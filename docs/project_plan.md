@@ -248,25 +248,23 @@ the pure world↔screen math to support it.
   structured: **pure, DOM-free, unit-tested math** in `src/simulator/`, with the
   Vue component kept thin.
 
-### Design decisions to confirm before coding
+### Design decisions — RESOLVED
 
-These are the choices that shape the work; resolve them at implementation start
-(recommendation in **bold**):
+The four shaping choices, settled before coding:
 
-1. **Renderer: Canvas 2D vs SVG.** **Canvas 2D** — the growing trail is many
-   points, and Canvas redraws cheaply; SVG nodes would accumulate. Redraw is
-   driven by a Vue `watch` on `state.position`/`state.yaw` (they change on the
-   50ms ticks), with `requestAnimationFrame` coalescing so we never draw more
-   than once per frame. Account for `devicePixelRatio` for crisp lines.
-2. **Camera: fixed origin vs follow-robot.** **Fixed field with pan/zoom**, plus
-   a "recenter / fit" control. Following the robot hides how far it has actually
-   travelled, which is the point of the view. (Milestone 2.3 adds the controls.)
-3. **Trail storage: view layer vs robot state.** **View layer.** Keep
-   `useRobotState` an API surface, not a view model. `FieldView` samples
-   `state.position` into a capped point buffer. The sampler (min-distance
-   thresholding, cap, reset handling) is pure and lives in
-   `src/simulator/trail.js` so it can be tested without a canvas.
-4. **Layout.** A new full-width `FieldView` panel in `App.vue`, placed above the
+1. **Renderer: Canvas 2D.** The growing trail is many points, and Canvas
+   redraws cheaply; SVG nodes would accumulate. Redraw is driven by a Vue
+   `watch` on `state.position`/`state.yaw` (they change on the 50ms ticks), with
+   `requestAnimationFrame` coalescing so we never draw more than once per frame.
+   Account for `devicePixelRatio` for crisp lines.
+2. **Camera: fixed field with pan/zoom**, plus a "recenter / fit" control.
+   Following the robot would hide how far it has actually travelled, which is the
+   point of the view. (Milestone 2.3 adds the controls.)
+3. **Trail storage: view layer.** Keep `useRobotState` an API surface, not a
+   view model. `FieldView` samples `state.position` into a capped point buffer.
+   The sampler (min-distance thresholding, cap, reset handling) is pure and lives
+   in `src/simulator/trail.js` so it can be tested without a canvas.
+4. **Layout: a new full-width `FieldView` panel** in `App.vue`, placed above the
    Dashboard so the field is the focal point and the numbers back it up.
 
 ### Milestone 2.1: Static Field & Robot Render
