@@ -1,4 +1,4 @@
-# Lego Spike Prime Simulator - Project plan created through collaboration with Claude Opus 4.5
+# Lego Spike Prime Simulator
 
 ## Project Overview
 
