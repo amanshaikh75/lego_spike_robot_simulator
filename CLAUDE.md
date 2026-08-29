@@ -57,7 +57,15 @@ Web-based simulator for LEGO Spike Prime robots. Tests Python code before deploy
 All five milestones (1.1–1.5) of the Phase 1 MVP are done: SPIKE Python API
 (`motor`, `motor_pair`, `runloop`, `time`, `hub.port`, `hub.motion_sensor`),
 kinematics-derived yaw and position, and a console + dashboard + config UI. The
-remaining `motion_sensor` gaps (`gesture()`, tap APIs, `set_yaw_face`/
-`get_yaw_face`) require physics/gesture input that is out of Phase-1 scope. Next
-up is Phase 2 (2D top-down visualization), which can build on the (x, y)/yaw the
-kinematics layer now produces.
+remaining `motion_sensor` gaps (`gesture()`, tap APIs) require physics/gesture
+input that is out of Phase-1 scope (`set_yaw_face`/`get_yaw_face` were since
+added). Full suite: 255 tests passing.
+
+### Phase 2: 2D Visualization — PLANNED
+Detailed milestone breakdown (2.1 static field & robot render, 2.2 motion trail,
+2.3 camera controls, 2.4 polish) written into `docs/project_plan.md`. Builds a
+top-down `FieldView` canvas over the existing reactive `state.position`/
+`state.yaw`, with pure world↔screen math in `src/simulator/viewTransform.js` and
+trail sampling in `src/simulator/trail.js` (mirroring the tested-pure-math /
+thin-component split used in Phase 1). No implementation code yet — next step is
+Milestone 2.1.
