@@ -61,11 +61,22 @@ remaining `motion_sensor` gaps (`gesture()`, tap APIs) require physics/gesture
 input that is out of Phase-1 scope (`set_yaw_face`/`get_yaw_face` were since
 added). Full suite: 255 tests passing.
 
-### Phase 2: 2D Visualization — PLANNED
+### Phase 2: 2D Visualization — IN PROGRESS
 Detailed milestone breakdown (2.1 static field & robot render, 2.2 motion trail,
-2.3 camera controls, 2.4 polish) written into `docs/project_plan.md`. Builds a
-top-down `FieldView` canvas over the existing reactive `state.position`/
-`state.yaw`, with pure world↔screen math in `src/simulator/viewTransform.js` and
-trail sampling in `src/simulator/trail.js` (mirroring the tested-pure-math /
-thin-component split used in Phase 1). No implementation code yet — next step is
-Milestone 2.1.
+2.3 camera controls, 2.4 polish) and resolved design decisions (Canvas 2D, fixed
+field with pan/zoom, trail in the view layer, full-width panel) live in
+`docs/project_plan.md`.
+
+#### Milestone 2.1: Static Field & Robot Render — COMPLETE
+- `src/simulator/viewTransform.js` — pure world↔screen math: `worldToScreen`/
+  `screenToWorld` (camera = `{ centerXmm, centerYmm, pxPerMm }`, with the world
+  +y → screen-up flip), `mmToPx`/`pxToMm`, `headingToScreenVector`, and
+  `yawToCanvasRotation` (clockwise yaw maps directly to canvas rotation).
+- `src/components/FieldView.vue` — a `devicePixelRatio`-aware `<canvas>` drawing
+  a 100mm reference grid, the world x/y axes, an origin marker, and the robot as
+  an oriented footprint (body sized from `axleTrackMm`, nose triangle = heading)
+  at `state.position` rotated by `state.yaw`. Redraws are `watch`-driven and
+  rAF-coalesced. Camera is fixed/origin-centred for now (pan/zoom is 2.3).
+- Mounted as a full-width panel above the Dashboard in `App.vue`.
+- Tests: `src/simulator/viewTransform.test.js` (15 cases). Full suite: 270
+  passing. Verified visually that the field + robot render (Pyodide-independent).

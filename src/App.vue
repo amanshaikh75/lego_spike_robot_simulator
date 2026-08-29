@@ -4,6 +4,7 @@ import CodeInput from './components/CodeInput.vue'
 import Console from './components/Console.vue'
 import ConfigEditor from './components/ConfigEditor.vue'
 import Dashboard from './components/Dashboard.vue'
+import FieldView from './components/FieldView.vue'
 import { useRobotState } from './composables/useRobotState'
 import { usePyodide } from './composables/usePyodide'
 
@@ -44,6 +45,10 @@ function handleReset() {
 
       <div class="panel console-panel">
         <Console :logs="state.logs" @clear="handleClearConsole" />
+      </div>
+
+      <div class="panel field-panel">
+        <FieldView :state="state" />
       </div>
 
       <div class="panel dashboard-panel">
@@ -134,6 +139,7 @@ main {
   border: 1px solid #e9ecef;
 }
 
+.field-panel,
 .dashboard-panel,
 .config-panel {
   grid-column: 1 / -1;
