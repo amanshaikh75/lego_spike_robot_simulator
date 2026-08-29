@@ -267,7 +267,7 @@ The four shaping choices, settled before coding:
 4. **Layout: a new full-width `FieldView` panel** in `App.vue`, placed above the
    Dashboard so the field is the focal point and the numbers back it up.
 
-### Milestone 2.1: Static Field & Robot Render
+### Milestone 2.1: Static Field & Robot Render — COMPLETE
 **Goal:** The robot appears on a field at its current position and heading.
 
 **Tasks:**
