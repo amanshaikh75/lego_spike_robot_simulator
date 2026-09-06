@@ -80,3 +80,12 @@ field with pan/zoom, trail in the view layer, full-width panel) live in
 - Mounted as a full-width panel above the Dashboard in `App.vue`.
 - Tests: `src/simulator/viewTransform.test.js` (15 cases). Full suite: 270
   passing. Verified visually that the field + robot render (Pyodide-independent).
+
+#### Examples
+- `examples/drive_square.py` — copy-paste demo for the simulator UI: drives a
+  300 mm square with `motor_pair.move_for_degrees` (steering 0 for the sides,
+  steering 100 to pivot the corners), printing yaw at each corner. Derives wheel
+  degrees from the robot geometry, so it stays correct if the config changes.
+  Verified in-browser: finishes at yaw 0.0 deg and position (0, 0). Linked from
+  the README's "Example programs" section.
+
