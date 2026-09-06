@@ -56,7 +56,16 @@ npm run preview   # preview the production build
 4. Watch the **Console** for output and the **Dashboard** for live state.
 5. Click **Reset Robot** to return everything to defaults.
 
-### Example program
+### Example programs
+
+Ready-to-run scripts live in [`examples/`](examples/). Copy the whole file into
+the **Code Input** panel and click **Run Code**:
+
+- [`examples/drive_square.py`](examples/drive_square.py) — drives a 300 mm
+  square, printing the heading at each corner. The robot finishes back at its
+  starting position and heading.
+
+A minimal program to get started:
 
 ```python
 import motor_pair
