@@ -60,7 +60,7 @@ async def main():
         print(f"Side {side + 1}: driving {SIDE_MM} mm forward")
         await motor_pair.move_for_degrees(
             motor_pair.PAIR_1,
-            mm_to_wheel_degrees(SIDE_MM),
+            int(mm_to_wheel_degrees(SIDE_MM)),
             0,  # steering 0 = straight ahead
             velocity=VELOCITY,
         )
@@ -68,7 +68,7 @@ async def main():
         print("  corner: turning right 90 deg")
         await motor_pair.move_for_degrees(
             motor_pair.PAIR_1,
-            turn_to_wheel_degrees(90),
+            int(turn_to_wheel_degrees(90)),
             100,  # steering 100 = pivot in place, clockwise
             velocity=VELOCITY,
         )
